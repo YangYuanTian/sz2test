@@ -46,7 +46,7 @@ static __always_inline struct iphdr *parseIpv4(struct __ctx_buff *ctx) {
 	if (ctx_no_room(ipv4_hdr + 1, data_end) || eth->h_proto != bpf_htons(ETH_P_IP))
 		return NULL;
 
-	if (!(ipv4_hdr->ihl == 4))
+	if (ipv4_hdr->version != 4)
 		return NULL;
 
 	return ipv4_hdr;
@@ -81,13 +81,12 @@ static __always_inline int redirect_direct_v4(struct __ctx_buff *ctx, struct iph
 
 __section("xdp") int xdp_prog_func(struct xdp_md *ctx) {
 	struct iphdr *ipv4_hdr = parseIpv4(ctx);
-	__u32 index            = 0;
-	config *my_config;
 
 	if (!ipv4_hdr)
 		return CTX_ACT_OK;
 
-	my_config = map_lookup_elem(&config_route, &index);
+	__u32 index       = 0;
+	config *my_config = map_lookup_elem(&config_route, &index);
 
 	// 如果目的IP地址是自己，则不进行转发
 	if (!my_config || ipv4_hdr->daddr == my_config->ipv4_self) {

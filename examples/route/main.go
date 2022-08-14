@@ -76,6 +76,8 @@ func main() {
 		log.Fatalf("could config my ip: %s", err)
 	}
 
+	printIPConfig(objs.ConfigRoute)
+
 	log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
 	log.Printf("Press Ctrl-C to exit and remove the program")
 
@@ -90,6 +92,15 @@ func main() {
 		}
 		log.Printf("Map contents:\n%s", s)
 	}
+}
+
+func printIPConfig(route *ebpf.Map) {
+	var key, value uint32
+	err := route.Lookup(&key, &value)
+	if err != nil {
+		fmt.Println("look err", err)
+	}
+	fmt.Printf("config: key %d ==> value %d\n", key, value)
 }
 
 func formatMapContents(m *ebpf.Map) (string, error) {
@@ -144,7 +155,7 @@ func configMyIpaddress(m *ebpf.Map, nic *net.Interface) error {
 
 	ip = ip.To4()
 
-	ipU32 := uint32(ip[3])<<24 | uint32(ip[2])<<16 | uint32(ip[1])<<16 | uint32(ip[0])
-	ipU32 = 0
+	ipU32 := uint32(ip[3])<<24 | uint32(ip[2])<<16 | uint32(ip[1])<<8 | uint32(ip[0])
+
 	return m.Put(uint32(0), ipU32)
 }
