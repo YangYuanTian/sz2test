@@ -51,7 +51,6 @@ TARGETS := \
 container-all:
 	${CONTAINER_ENGINE} run --rm ${CONTAINER_RUN_ARGS} \
 		-v "${REPODIR}"/examples/headers/include:/usr/include \
-		-v "${REPODIR}"/examples/headers/lib:/usr/include/lib \
 		-v "${REPODIR}":/ebpf -w /ebpf --env MAKEFLAGS \
 		--env CFLAGS="-fdebug-prefix-map=/ebpf=." \
 		--env HOME="/tmp" \
