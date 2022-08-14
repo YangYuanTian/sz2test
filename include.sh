@@ -1,0 +1,1 @@
+export C_INCLUDE_PATH=/ebpf/headers:/ebpf/examples/headers/include/linux/:/ebpf/examples/headers/include/linux/byteorder:/ebpf/headers/examples/bpf/:/ebpf/examples/headers/lib/:/ebpf/examples/headers/include/bpf/:/ebpf/examples/headers/include/bpf/ctx
