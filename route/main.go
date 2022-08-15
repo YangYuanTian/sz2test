@@ -12,12 +12,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/pkg/errors"
 	"log"
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -27,16 +29,22 @@ import (
 // $BPF_CLANG and $BPF_CFLAGS are set by the Makefile.
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf route.c --   -I ../headers/
 
-func main() {
-	if len(os.Args) < 2 {
-		log.Fatalf("Please specify a network interface")
-	}
+var iface1 string
+var iface2 string
 
-	// Look up the network interface by name.
-	ifaceName := os.Args[1]
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		log.Fatalf("lookup network iface %q: %s", ifaceName, err)
+func init() {
+	flag.StringVar(&iface1, "iface1", "", "Network interface to attach XDP program to")
+	flag.StringVar(&iface2, "iface2", "", "Network interface to attach XDP program to")
+}
+
+var g sync.WaitGroup
+
+func main() {
+
+	flag.Parse()
+
+	if iface1 == "" && iface2 == "" {
+		log.Fatalf("Please specify a network interface")
 	}
 
 	// Load pre-compiled programs into the kernel.
@@ -57,41 +65,22 @@ func main() {
 		log.Fatalf("loading objects: %s", err)
 	}
 	defer objs.Close()
-	go func() {
-		time.Sleep(30 * time.Second)
-		os.Exit(-1)
-	}()
-	// Attach the program.
-	l, err := link.AttachXDP(link.XDPOptions{
-		Program:   objs.XdpProgFunc,
-		Interface: iface.Index,
-	})
-	if err != nil {
-		log.Fatalf("could not attach XDP program: %s", err)
-	}
-	defer l.Close()
 
-	err = configMyIpaddress(objs.ConfigRoute, iface)
-	if err != nil {
-		log.Fatalf("could config my ip: %s", err)
+	if iface1 != "" {
+		go func() {
+			g.Add(1)
+			defer g.Done()
+			attach(iface1, objs.XdpProgFunc, objs.ConfigRoute, objs.XdpStatsMap)
+		}()
 	}
 
-	printIPConfig(objs.ConfigRoute)
-
-	log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
-	log.Printf("Press Ctrl-C to exit and remove the program")
-
-	// Print the contents of the BPF hash map (source IP address -> packet count).
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-		s, err := formatMapContents(objs.XdpStatsMap)
-		if err != nil {
-			log.Printf("Error reading map: %s", err)
-			continue
-		}
-		log.Printf("Map contents:\n%s", s)
+	if iface2 != "" {
+		g.Add(1)
+		defer g.Done()
+		attach(iface2, objs.XdpProgFunc1, objs.ConfigRoute1, objs.XdpStatsMap1)
 	}
+
+	g.Wait()
 }
 
 func printIPConfig(route *ebpf.Map) {
@@ -158,4 +147,41 @@ func configMyIpaddress(m *ebpf.Map, nic *net.Interface) error {
 	ipU32 := uint32(ip[3])<<24 | uint32(ip[2])<<16 | uint32(ip[1])<<8 | uint32(ip[0])
 
 	return m.Put(uint32(0), ipU32)
+}
+
+func attach(ifaceName string, prog *ebpf.Program, routeMap *ebpf.Map, statMap *ebpf.Map) {
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Fatalf("lookup network iface %s: %s", ifaceName, err)
+	}
+
+	link, err := link.AttachXDP(link.XDPOptions{
+		Program:   prog,
+		Interface: iface.Index,
+	})
+
+	defer link.Close()
+
+	err = configMyIpaddress(routeMap, iface)
+	if err != nil {
+		log.Fatalf("could config my ip: %s", err)
+	}
+
+	printIPConfig(routeMap)
+
+	log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
+	log.Printf("Press Ctrl-C to exit and remove the program")
+
+	// Print the contents of the BPF hash map (source IP address -> packet count).
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		s, err := formatMapContents(statMap)
+		if err != nil {
+			log.Printf("Error reading map: %s", err)
+			continue
+		}
+		log.Printf("Map contents:\n%s", s)
+	}
 }
