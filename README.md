@@ -1,78 +1,34 @@
-# eBPF
+# eBPF Examples
 
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/cilium/ebpf)](https://pkg.go.dev/github.com/cilium/ebpf)
+* Kprobe - Attach a program to the entry or exit of an arbitrary kernel symbol (function).
+  * [kprobe](kprobe/) - Kprobe using bpf2go.
+  * [kprobepin](kprobepin/) - Reuse a pinned map for the kprobe example. It assumes the BPF FS is mounted at `/sys/fs/bpf`.
+  * [kprobe_percpu](kprobe_percpu/) - Use a `BPF_MAP_TYPE_PERCPU_ARRAY` map.
+  * [ringbuffer](ringbuffer/) - Use a `BPF_MAP_TYPE_RINGBUF` map.
+* Uprobe - Attach a program to the entry or exit of an arbitrary userspace binary symbol (function).
+  * [uretprobe](uretprobe/) - Uretprobe using bpf2go.
+* Tracepoint - Attach a program to predetermined kernel tracepoints.
+  * [tracepoint_in_c](tracepoint_in_c/) - Tracepoint using bpf2go.
+  * [tracepoint_in_go](tracepoint_in_go/) - Tracepoint using the `ebpf.NewProgram` API and Go eBPF assembler.
+* Cgroup - Attach a program to control groups (cgroups).
+  * [cgroup_skb](cgroup_skb/) - Count packets egressing the current cgroup.
+* Fentry - Attach a program to the entrypoint of a kernel function.
+  Like kprobes, but with better performance and usability, for kernels 5.5 and later.
+  * [tcp_connect](fentry/) - Trace outgoing IPv4 TCP connections.
+  * [tcp_close](tcprtt/) - Log RTT of IPv4 TCP connections using eBPF CO-RE helpers.
+* XDP - Attach a program to a network interface to process incoming packets.
+  * [xdp](xdp/) - Print packet counts by IPv4 source address.
+* Add your use case(s) here!
 
-![HoneyGopher](.github/images/cilium-ebpf.png)
+## How to run
 
-eBPF is a pure Go library that provides utilities for loading, compiling, and
-debugging eBPF programs. It has minimal external dependencies and is intended to
-be used in long running processes.
+```bash
+cd ebpf/examples/
+go run -exec sudo [./kprobe, ./uretprobe, ./ringbuffer, ...]
+```
 
-The library is maintained by [Cloudflare](https://www.cloudflare.com) and
-[Cilium](https://www.cilium.io).
+## How to recompile
 
-See [ebpf.io](https://ebpf.io) for other projects from the eBPF ecosystem.
-
-## Getting Started
-
-A small collection of Go and eBPF programs that serve as examples for building
-your own tools can be found under [examples/](examples/).
-
-Contributions are highly encouraged, as they highlight certain use cases of
-eBPF and the library, and help shape the future of the project.
-
-## Getting Help
-
-Please
-[join](https://ebpf.io/slack) the
-[#ebpf-go](https://cilium.slack.com/messages/ebpf-go) channel on Slack if you
-have questions regarding the library.
-
-## Packages
-
-This library includes the following packages:
-
-* [asm](https://pkg.go.dev/github.com/cilium/ebpf/asm) contains a basic
-  assembler, allowing you to write eBPF assembly instructions directly
-  within your Go code. (You don't need to use this if you prefer to write your eBPF program in C.)
-* [cmd/bpf2go](https://pkg.go.dev/github.com/cilium/ebpf/cmd/bpf2go) allows
-  compiling and embedding eBPF programs written in C within Go code. As well as
-  compiling the C code, it auto-generates Go code for loading and manipulating
-  the eBPF program and map objects.
-* [link](https://pkg.go.dev/github.com/cilium/ebpf/link) allows attaching eBPF
-  to various hooks
-* [perf](https://pkg.go.dev/github.com/cilium/ebpf/perf) allows reading from a
-  `PERF_EVENT_ARRAY`
-* [ringbuf](https://pkg.go.dev/github.com/cilium/ebpf/ringbuf) allows reading from a
-  `BPF_MAP_TYPE_RINGBUF` map
-* [features](https://pkg.go.dev/github.com/cilium/ebpf/features) implements the equivalent
-  of `bpftool feature probe` for discovering BPF-related kernel features using native Go.
-* [rlimit](https://pkg.go.dev/github.com/cilium/ebpf/rlimit) provides a convenient API to lift
-  the `RLIMIT_MEMLOCK` constraint on kernels before 5.11.
-
-## Requirements
-
-* A version of Go that is [supported by
-  upstream](https://golang.org/doc/devel/release.html#policy)
-* Linux >= 4.9. CI is run against kernel.org LTS releases. 4.4 should work but is
-  not tested against.
-
-## Regenerating Testdata
-
-Run `make` in the root of this repository to rebuild testdata in all
-subpackages. This requires Docker, as it relies on a standardized build
-environment to keep the build output stable.
-
-It is possible to regenerate data using Podman by overriding the `CONTAINER_*`
-variables: `CONTAINER_ENGINE=podman CONTAINER_RUN_ARGS= make`.
-
-The toolchain image build files are kept in [testdata/docker/](testdata/docker/).
-
-## License
-
-MIT
-
-### eBPF Gopher
-
-The eBPF honeygopher is based on the Go gopher designed by Renee French.
-# sz2test
+```
+make -C ..
+```

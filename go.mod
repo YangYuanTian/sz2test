@@ -1,16 +1,10 @@
-module github.com/cilium/ebpf
+module github.com/cilium/ebpf/examples
 
 go 1.17
 
 require (
-	github.com/frankban/quicktest v1.14.0
-	github.com/google/go-cmp v0.5.6
-	golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34
+	github.com/cilium/ebpf v0.8.2-0.20220424153111-6da9518107a8
+	github.com/pkg/errors v0.9.1
 )
 
-require (
-	github.com/kr/pretty v0.3.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.6.1 // indirect
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
-)
+require golang.org/x/sys v0.0.0-20211001092434-39dca1131b70 // indirect
