@@ -107,12 +107,12 @@ __section("xdp") int xdp_prog_func(struct xdp_md *ctx) {
 		return CTX_ACT_OK;
 	}
 
-	__u32 *pkt_count = map_lookup_elem(&xdp_stats_map, &(ipv4_hdr->saddr));
+	__u32 *pkt_count = map_lookup_elem(&xdp_stats_map, &(ipv4_hdr->daddr));
 	if (!pkt_count) {
 		// No entry in the map for this IP address yet, so set the initial value
 		// to 1.
 		__u32 init_pkt_count = 1;
-		map_update_elem(&xdp_stats_map, &(ipv4_hdr->saddr), &init_pkt_count, BPF_ANY);
+		map_update_elem(&xdp_stats_map, &(ipv4_hdr->daddr), &init_pkt_count, BPF_ANY);
 	} else {
 		// Entry already exists for this IP address,
 		// so increment it atomically using an LLVM built-in.

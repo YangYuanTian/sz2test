@@ -173,7 +173,7 @@ func attach(ifaceName string, prog *ebpf.Program, routeMap *ebpf.Map, statMap *e
 	log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
 	log.Printf("Press Ctrl-C to exit and remove the program")
 
-	// Print the contents of the BPF hash map (source IP address -> packet count).
+	// Print the contents of the BPF hash map (destination IP address -> packet count).
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
