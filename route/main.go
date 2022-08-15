@@ -67,8 +67,8 @@ func main() {
 	defer objs.Close()
 
 	if iface1 != "" {
+		g.Add(1)
 		go func() {
-			g.Add(1)
 			defer g.Done()
 			attach(iface1, objs.XdpProgFunc, objs.ConfigRoute, objs.XdpStatsMap)
 		}()
@@ -76,8 +76,10 @@ func main() {
 
 	if iface2 != "" {
 		g.Add(1)
-		defer g.Done()
-		attach(iface2, objs.XdpProgFunc1, objs.ConfigRoute1, objs.XdpStatsMap1)
+		go func() {
+			defer g.Done()
+			attach(iface2, objs.XdpProgFunc1, objs.ConfigRoute1, objs.XdpStatsMap1)
+		}()
 	}
 
 	g.Wait()
