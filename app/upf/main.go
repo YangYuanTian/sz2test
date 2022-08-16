@@ -1,33 +1,27 @@
 //go:build linux
 // +build linux
 
-// This program demonstrates attaching an eBPF program to a network interface
-// with XDP (eXpress Data Path). The program parses the IPv4 source address
-// from packets and writes the packet count by IP to an LRU hash map.
-// The userspace program (Go code in this file) prints the contents
-// of the map to stdout every second.
-// It is possible to modify the XDP program to drop or redirect packets
-// as well -- give it a try!
-// This example depends on bpf_link, available in Linux kernel version 5.7 or newer.
+// This depends on bpf_link, available in Linux kernel version 5.7 or newer.
 package main
-
-// $BPF_CLANG and $BPF_CFLAGS are set by the Makefile.
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c --  -I ../headers
 
 import (
 	"flag"
 	"fmt"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/gogf/gf/v2/os/gctx"
+	"github.com/gogf/gf/v2/os/glog"
 	"github.com/pkg/errors"
-	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
+	"upf/internal/cmd"
 )
+
+// $BPF_CLANG and $BPF_CFLAGS are set by the Makefile.
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c --  -I ../headers
 
 var iface1 string
 var iface2 string
@@ -40,11 +34,18 @@ func init() {
 var g sync.WaitGroup
 
 func main() {
+	cmd.Main.Run(ctx)
+	xdp()
+}
 
+var ctx = gctx.New()
+var l = glog.New()
+
+func xdp() {
 	flag.Parse()
 
 	if iface1 == "" && iface2 == "" {
-		log.Fatalf("Please specify a network interface")
+		l.Fatalf(ctx, "Please specify a network interface")
 	}
 
 	// Load pre-compiled programs into the kernel.
@@ -62,7 +63,7 @@ func main() {
 	}
 
 	if err := loadBpfObjects(&objs, &opts); err != nil {
-		log.Fatalf("loading objects: %s", err)
+		l.Fatalf(ctx, "loading objects: %s", err)
 	}
 	defer objs.Close()
 
@@ -89,9 +90,9 @@ func printIPConfig(route *ebpf.Map) {
 	var key, value uint32
 	err := route.Lookup(&key, &value)
 	if err != nil {
-		fmt.Println("look err", err)
+		l.Fatalf(ctx, "look err", err)
 	}
-	fmt.Printf("config: key %d ==> value %d\n", key, value)
+	l.Infof(ctx, "config: key %d ==> value %d\n", key, value)
 }
 
 func formatMapContents(m *ebpf.Map) (string, error) {
@@ -120,7 +121,7 @@ func configMyIpaddress(m *ebpf.Map, nic *net.Interface) error {
 		return errors.New("ip addr not found with" + nic.Name)
 	}
 
-	fmt.Println("interface ip is:", addr[0].String())
+	l.Infof(ctx, "interface ip is:", addr[0].String())
 
 	ipStr := addr[0].String()
 
@@ -155,7 +156,7 @@ func attach(ifaceName string, prog *ebpf.Program, routeMap *ebpf.Map, statMap *e
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		log.Fatalf("lookup network iface %s: %s", ifaceName, err)
+		l.Fatalf(ctx, "lookup network iface %s: %s", ifaceName, err)
 	}
 
 	link, err := link.AttachXDP(link.XDPOptions{
@@ -167,13 +168,13 @@ func attach(ifaceName string, prog *ebpf.Program, routeMap *ebpf.Map, statMap *e
 
 	err = configMyIpaddress(routeMap, iface)
 	if err != nil {
-		log.Fatalf("could config my ip: %s", err)
+		l.Fatalf(ctx, "could config my ip: %s", err)
 	}
 
 	printIPConfig(routeMap)
 
-	log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
-	log.Printf("Press Ctrl-C to exit and remove the program")
+	l.Infof(ctx, "Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
+	l.Infof(ctx, "Press Ctrl-C to exit and remove the program")
 
 	// Print the contents of the BPF hash map (destination IP address -> packet count).
 	ticker := time.NewTicker(1 * time.Second)
@@ -181,9 +182,9 @@ func attach(ifaceName string, prog *ebpf.Program, routeMap *ebpf.Map, statMap *e
 	for range ticker.C {
 		s, err := formatMapContents(statMap)
 		if err != nil {
-			log.Printf("Error reading map: %s", err)
+			l.Infof(ctx, "Error reading map: %s", err)
 			continue
 		}
-		log.Printf("Map contents:\n%s", s)
+		l.Infof(ctx, "Map contents:\n%s", s)
 	}
 }
