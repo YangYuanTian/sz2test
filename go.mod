@@ -1,10 +1,9 @@
-module github.com/cilium/ebpf/examples
+module upf
 
-go 1.17
+go 1.15
 
 require (
-	github.com/cilium/ebpf v0.8.2-0.20220424153111-6da9518107a8
+	github.com/cilium/ebpf v0.9.1
+	github.com/gogf/gf/v2 v2.0.6
 	github.com/pkg/errors v0.9.1
 )
-
-require golang.org/x/sys v0.0.0-20211001092434-39dca1131b70 // indirect
