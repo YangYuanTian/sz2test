@@ -44,7 +44,7 @@ __section("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
   // 收包打点
   __u64 ind = usr->flags;
-  stat_t *stat = get_dl_stat(STAT_ID(ind));
+  stat_t *stat = get_ul_stat(STAT_ID(ind));
   stat->total_received_packets++;
   stat->total_received_bytes += (ctx->data_end - ctx->data);
 
