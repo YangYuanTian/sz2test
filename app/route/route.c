@@ -18,14 +18,14 @@ char __license[] __section("license") = "Dual MIT/GPL";
 
 /* Define an LRU hash map for storing packet count by source IPv4 address */
 struct {
-  __uint(type, BPF_MAP_TYPE_LRU_HASH);
+  __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
   __uint(max_entries, MAX_MAP_ENTRIES);
   __type(key, __u32);   // source IPv4 address
   __type(value, __u32); // packet count
 } xdp_stats_map __section(".maps");
 
 struct {
-  __uint(type, BPF_MAP_TYPE_LRU_HASH);
+  __uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);
   __uint(max_entries, MAX_MAP_ENTRIES);
   __type(key, __u32);   // source IPv4 address
   __type(value, __u32); // packet count
@@ -37,14 +37,14 @@ typedef struct {
 
 /* Use an array map with 1 key as config*/
 struct {
-  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
   __type(key, __u32);
   __type(value, config);
   __uint(max_entries, 1);
 } config_route __section(".maps");
 
 struct {
-  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
   __type(key, __u32);
   __type(value, config);
   __uint(max_entries, 1);

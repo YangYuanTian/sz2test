@@ -7,150 +7,136 @@
 #include <bpf/api.h>
 #include <bpf/helpers.h>
 #include <linux/ip.h>
+#include <linux/in.h>
 
 #include "route.h"
+#include "gtpu.h"
+#include "stat.h"
 #include <lib/eth.h>
 
 char __license[] __section("license") = "Dual MIT/GPL";
 
-#define MAX_MAP_ENTRIES 16
-#define NULL ((void *)0)
 
-/* Define an LRU hash map for storing packet count by source IPv4 address */
-struct {
-  __uint(type, BPF_MAP_TYPE_LRU_HASH);
-  __uint(max_entries, MAX_MAP_ENTRIES);
-  __type(key, __u32);   // source IPv4 address
-  __type(value, __u32); // packet count
-} xdp_stats_map __section(".maps");
+//n3入口处理程序
+SEC("xdp/n3")
+int xdp_prog_func_n3(struct xdp_md *ctx) {
 
-struct {
-  __uint(type, BPF_MAP_TYPE_LRU_HASH);
-  __uint(max_entries, MAX_MAP_ENTRIES);
-  __type(key, __u32);   // source IPv4 address
-  __type(value, __u32); // packet count
-} xdp_stats_map1 __section(".maps");
+    //N3 包过滤，保证传递进来的是一个用户转发的GTP数据包
+    struct iphdr *ipv4_hdr;
+    int next = n3_packet_filter(ctx,&ipv4_hdr);
+    if (next != GO_ON)
+        return next;
 
-typedef struct {
-  __u32 ipv4_self;
-} config;
+    //解析GTP包的teid
+    struct gtphdr *gtp;
+    next = parse_gtphdr(ctx,&gtp);
+    if (next != GO_ON)
+        return next;
 
-/* Use an array map with 1 key as config*/
-struct {
-  __uint(type, BPF_MAP_TYPE_ARRAY);
-  __type(key, __u32);
-  __type(value, config);
-  __uint(max_entries, 1);
-} config_route __section(".maps");
+    //分离gtp中的控制信令包与数据流包
+    if (is_signalling(gtp)){
 
-struct {
-  __uint(type, BPF_MAP_TYPE_ARRAY);
-  __type(key, __u32);
-  __type(value, config);
-  __uint(max_entries, 1);
-} config_route1 __section(".maps");
+        return XDP_PASS;
+    }
 
-static __always_inline struct iphdr *parseIpv4(struct __ctx_buff *ctx) {
-  void *data_end = ctx_data_end(ctx);
-  void *data = ctx_data(ctx);
+    //通过teid 查找用户上下文
+    usr_ctx_uplink_t * usr = get_user_ctx_by_teid(teid);
 
-  struct iphdr *ipv4_hdr = data + sizeof(struct ethhdr);
-  struct ethhdr *eth = data;
+    //如果没有查找到上下文，或者是上下文指示把数据包丢弃，则直接把数据包丢弃
+    if (!usr || usr.drop) {
+        return XDP_DROP;
+    }
 
-  if (ctx_no_room(ipv4_hdr + 1, data_end) ||
-      eth->h_proto != bpf_htons(ETH_P_IP))
-    return NULL;
+    //如果上下文指示把数据包直接透传，则把数据包传递到用户态
+    if (usr.pass) {
+        return XDP_PASS;
+    }
 
-  if (ipv4_hdr->version != 4)
-    return NULL;
+    //如果上下文指示流控，执行流控操作
+//    next = flow_control(usr.flow_control,ipv4_hdr.id);
+//    if (next != GO_ON)
+//        return next;
 
-  return ipv4_hdr;
+    //如果指示对数据包的操作是去掉GTP/UDP/IP包头，则执行去包头操作
+    if (usr.desc == REMOVE_GTP_UDP_IP){
+
+        remove_gtp_header(ctx,usr);
+
+        //将这个包从另一个网口中发送出去,发送之前需要进行查找路由表的操作
+        //在这里定义一些操作码，如果mac不存在，需要透传到用户态。
+        return redirect_direct_v4(ctx, ipv4_hdr);
+    }
+
+    //不支持的操作，直接把数据包丢弃
+    return XDP_DROP;
 }
 
-static __always_inline int redirect_direct_v4(struct __ctx_buff *ctx,
-                                              struct iphdr *ip4) {
-  int ret;
 
-  struct bpf_fib_lookup fib_params = {
-      .family = AF_INET,
-      .ifindex = ctx->ingress_ifindex,
-      .ipv4_src = ip4->saddr,
-      .ipv4_dst = ip4->daddr,
-  };
 
-  ret = fib_lookup(ctx, &fib_params, sizeof(fib_params), BPF_FIB_LOOKUP_DIRECT);
-  switch (ret) {
-  case BPF_FIB_LKUP_RET_SUCCESS:
-    break;
-  case BPF_FIB_LKUP_RET_NO_NEIGH:
-    return CTX_ACT_OK;
-  default:
-    return CTX_ACT_DROP;
-  }
+//n6入口处理程序
+SEC("xdp/n6")
+int xdp_prog_func_n6(struct xdp_md *ctx) {
 
-  if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-    return CTX_ACT_DROP;
-  if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-    return CTX_ACT_DROP;
-  return ctx_redirect(ctx, fib_params.ifindex, 0);
+    struct iphdr *ipv4_hdr = parse_ipv4(ctx);
+
+    if (!ipv4_hdr)
+        return XDP_PASS;
+
+    __u32 index = 1;
+    config *my_config = map_lookup_elem(&config_route, &index);
+    if (!my_config || ipv4_hdr->daddr == my_config->ipv4_self)
+        return NULL;
+
+    //通过ueip 查找用户上下文
+    usr_ctx_downLink_t * usr = get_user_ctx_by_ueip_v4(iphdr.daddr);
+
+    //如果没有查找到上下文，或者是上下文指示把数据包丢弃，则直接把数据包丢弃
+    if (!usr) {
+        return XDP_DROP;
+    }
+
+    //收包打点
+    __u64 ind = usr->flags;
+    stat_t *stat = get_dl_stat(STAT_ID(ind));
+    stat->total_received_packets ++;
+    stat->total_received_bytes += (ctx.data_end - ctx.data);
+
+    if (DROP(ind)){
+        return XDP_DROP;
+    }
+
+    //如果上下文指示把数据包直接透传，则把数据包传递到用户态
+    if (PASS(ind)) {
+        return XDP_PASS;
+    }
+
+    //如果上下文指示流控，执行流控操作
+//    next = flow_control(usr.flow_control,ipv4_hdr.id);
+//    if (next != GO_ON)
+//        return next;
+
+    //如果指示对数据包的操作是增加GTP/UDP/IP包头，则执行加包头操作
+    if (DESC(ind) == ADD_GTP_UDP_IP){
+
+        next = add_gtp_header(ctx,usr,ipv4_hdr->id);
+
+        if (next != GO_ON)
+            return next;
+
+        next = redirect_direct_v4(ctx, ipv4_hdr);
+        if (next == XDP_TX || next == XDP_REDIRECT){
+            //发包打点
+            stat->total_sent_packets ++;
+            stat->total_sent_bytes += (ctx.data_end - ctx.data);
+        }
+        return next;
+    }
+
+    return XDP_DROP;
 }
 
-__section("xdp") int xdp_prog_func(struct xdp_md *ctx) {
-  struct iphdr *ipv4_hdr = parseIpv4(ctx);
-
-  if (!ipv4_hdr)
-    return CTX_ACT_OK;
-
-  __u32 index = 0;
-  config *my_config = map_lookup_elem(&config_route, &index);
-
-  // 如果目的IP地址是自己，则不进行转发
-  if (!my_config || ipv4_hdr->daddr == my_config->ipv4_self) {
-    return CTX_ACT_OK;
-  }
-
-  __u32 *pkt_count = map_lookup_elem(&xdp_stats_map, &(ipv4_hdr->daddr));
-  if (!pkt_count) {
-    // No entry in the map for this IP address yet, so set the initial value
-    // to 1.
-    __u32 init_pkt_count = 1;
-    map_update_elem(&xdp_stats_map, &(ipv4_hdr->daddr), &init_pkt_count,
-                    BPF_ANY);
-  } else {
-    // Entry already exists for this IP address,
-    // so increment it atomically using an LLVM built-in.
-    __sync_fetch_and_add(pkt_count, 1);
-  }
-
-  return redirect_direct_v4(ctx, ipv4_hdr);
-}
-
-__section("xdp1") int xdp_prog_func1(struct xdp_md *ctx) {
-  struct iphdr *ipv4_hdr = parseIpv4(ctx);
-
-  if (!ipv4_hdr)
-    return CTX_ACT_OK;
-
-  __u32 index = 0;
-  config *my_config = map_lookup_elem(&config_route1, &index);
-
-  // 如果目的IP地址是自己，则不进行转发
-  if (!my_config || ipv4_hdr->daddr == my_config->ipv4_self) {
-    return CTX_ACT_OK;
-  }
-
-  __u32 *pkt_count = map_lookup_elem(&xdp_stats_map1, &(ipv4_hdr->saddr));
-  if (!pkt_count) {
-    // No entry in the map for this IP address yet, so set the initial value
-    // to 1.
-    __u32 init_pkt_count = 1;
-    map_update_elem(&xdp_stats_map1, &(ipv4_hdr->saddr), &init_pkt_count,
-                    BPF_ANY);
-  } else {
-    // Entry already exists for this IP address,
-    // so increment it atomically using an LLVM built-in.
-    __sync_fetch_and_add(pkt_count, 1);
-  }
-
-  return redirect_direct_v4(ctx, ipv4_hdr);
+//如果n3 与 n6共用同一张网卡的时候
+SEC("xdp/n3n6")
+int xdp_prog_func_n3n6(struct xdp_md *ctx) {
+    return XDP_PASS;
 }

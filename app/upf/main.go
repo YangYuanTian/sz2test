@@ -33,13 +33,13 @@ func init() {
 
 var g sync.WaitGroup
 
+var ctx = gctx.New()
+var l = glog.New()
+
 func main() {
 	cmd.Main.Run(ctx)
 	xdp()
 }
-
-var ctx = gctx.New()
-var l = glog.New()
 
 func xdp() {
 	flag.Parse()
