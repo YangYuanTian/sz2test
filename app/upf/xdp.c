@@ -48,10 +48,9 @@ __section("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
   stat_t *stat = map_lookup_elem(&ul_stat, &key); //
   if (stat) {
-        stat->total_received_packets++;
-        stat->total_received_bytes += (ctx->data_end - ctx->data);
+    stat->total_received_packets++;
+    stat->total_received_bytes += (ctx->data_end - ctx->data);
   }
-
 
   // 如果指示丢包，则直接把包丢弃
   if (DROP(ind)) {
@@ -114,8 +113,10 @@ __section("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
   // 收包打点
   __u64 ind = usr->flags;
   stat_t *stat = get_dl_stat(STAT_ID(ind));
-  stat->total_received_packets++;
-  stat->total_received_bytes += (ctx->data_end - ctx->data);
+  if (stat) {
+    stat->total_received_packets++;
+    stat->total_received_bytes += (ctx->data_end - ctx->data);
+  }
 
   // 如果指示丢包，则直接把包丢弃
   if (DROP(ind)) {
@@ -144,8 +145,10 @@ __section("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
     if (next == XDP_TX || next == XDP_REDIRECT) {
       // 发包打点
-      stat->total_forward_packets++;
-      stat->total_forward_bytes += (ctx->data_end - ctx->data);
+      if (stat) {
+        stat->total_forward_packets++;
+        stat->total_forward_bytes += (ctx->data_end - ctx->data);
+      }
     }
 
     return next;
