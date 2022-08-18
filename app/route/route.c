@@ -67,34 +67,6 @@ static __always_inline struct iphdr *parseIpv4(struct __ctx_buff *ctx) {
   return ipv4_hdr;
 }
 
-static __always_inline int redirect_direct_v4(struct __ctx_buff *ctx,
-                                              struct iphdr *ip4) {
-  int ret;
-
-  struct bpf_fib_lookup fib_params = {
-      .family = AF_INET,
-      .ifindex = ctx->ingress_ifindex,
-      .ipv4_src = ip4->saddr,
-      .ipv4_dst = ip4->daddr,
-  };
-
-  ret = fib_lookup(ctx, &fib_params, sizeof(fib_params), BPF_FIB_LOOKUP_DIRECT);
-  switch (ret) {
-  case BPF_FIB_LKUP_RET_SUCCESS:
-    break;
-  case BPF_FIB_LKUP_RET_NO_NEIGH:
-    return CTX_ACT_OK;
-  default:
-    return CTX_ACT_DROP;
-  }
-
-  if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-    return CTX_ACT_DROP;
-  if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-    return CTX_ACT_DROP;
-  return ctx_redirect(ctx, fib_params.ifindex, 0);
-}
-
 __section("xdp") int xdp_prog_func(struct xdp_md *ctx) {
   struct iphdr *ipv4_hdr = parseIpv4(ctx);
 
