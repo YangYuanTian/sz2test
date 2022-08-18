@@ -37,14 +37,14 @@ typedef struct {
 
 /* Use an array map with 1 key as config*/
 struct {
-  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(type, BPF_MAP_TYPE_ARRAY);
   __type(key, __u32);
   __type(value, config);
   __uint(max_entries, 1);
 } config_route __section(".maps");
 
 struct {
-  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(type, BPF_MAP_TYPE_ARRAY);
   __type(key, __u32);
   __type(value, config);
   __uint(max_entries, 1);

@@ -146,9 +146,9 @@ func configMyIpaddress(m *ebpf.Map, nic *net.Interface) error {
 
 	ip = ip.To4()
 
-	//ipU32 := uint32(ip[3])<<24 | uint32(ip[2])<<16 | uint32(ip[1])<<8 | uint32(ip[0])
+	ipU32 := uint32(ip[3])<<24 | uint32(ip[2])<<16 | uint32(ip[1])<<8 | uint32(ip[0])
 
-	return m.Put(uint32(0), ip)
+	return m.Put(uint32(0), ipU32)
 }
 
 func attach(ifaceName string, prog *ebpf.Program, routeMap *ebpf.Map, statMap *ebpf.Map) {
