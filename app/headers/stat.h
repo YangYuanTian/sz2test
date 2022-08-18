@@ -15,14 +15,14 @@ struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u16);
     __type(value, stat_t);
-    __uint(max_entries, MAX_MAP_ENTRIES);
+    __uint(max_entries, 256);
 } ul_stat __section(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u16);
     __type(value, stat_t);
-    __uint(max_entries, MAX_MAP_ENTRIES);
+    __uint(max_entries, 256);
 } dl_stat __section(".maps");
 
 
