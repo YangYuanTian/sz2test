@@ -24,36 +24,34 @@ char __license[] __section("license") = "Dual MIT/GPL";
 // n3入口处理程序
 __section("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
-    // N3 包过滤，保证传递进来的是一个用户转发的GTP数据包
-    int next = n3_packet_filter(ctx);
-    if (next != GO_ON)
-     return next;
+  // N3 包过滤，保证传递进来的是一个用户转发的GTP数据包
+  int next = n3_packet_filter(ctx);
+  if (next != GO_ON)
+    return next;
 
-    // 解析GTP包的teid,并且把信令相关的包丢向内核
-    __u32 teid;
-    next = parse_teid_and_check_signalling(ctx, &teid);
-    if (next != GO_ON)
-        return next;
+  // 解析GTP包的teid,并且把信令相关的包丢向内核
+  __u32 teid;
+  next = parse_teid_and_check_signalling(ctx, &teid);
+  if (next != GO_ON)
+    return next;
 
-    // 通过teid 查找用户上下文
-    usr_ctx_uplink_t *usr = get_user_ctx_by_teid(&teid);
+  // 通过teid 查找用户上下文
+  usr_ctx_uplink_t *usr = get_user_ctx_by_teid(&teid);
 
-    if (usr == NULL) {
+  if (usr == NULL) {
     return XDP_DROP;
-    }
+  }
 
-    // 收包打点
-    __u64 ind = usr->flags;
-    __u16 key = STAT_ID(ind);
+  // 收包打点
+  __u64 ind = usr->flags;
+  __u16 key = STAT_ID(ind);
 
-    if (key > MAX_MAP_ENTRIES){
-        bpf_printk("error stat key %d\n", key);
-        return XDP_DROP;
-    }
-    stat_t *stat = map_lookup_elem(&ul_stat, &key); //
-    stat->total_received_packets++;
-    stat->total_received_bytes += (ctx->data_end - ctx->data);
-
+  if (key > MAX_MAP_ENTRIES) {
+    return XDP_DROP;
+  }
+  stat_t *stat = map_lookup_elem(&ul_stat, &key); //
+  stat->total_received_packets++;
+  stat->total_received_bytes += (ctx->data_end - ctx->data);
 
   // 如果指示丢包，则直接把包丢弃
   if (DROP(ind)) {
