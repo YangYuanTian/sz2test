@@ -1,6 +1,8 @@
 #ifndef __LIB_GTPU_H_
 #define __LIB_GTPU_H_
 
+
+#include <bpf/ctx/xdp.h>
 #include "user.h"
 #include <linux/if_ether.h>
 
@@ -140,6 +142,8 @@ static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t 
 
     __u8 l = usr->template[EXTENT_HEADER_START];
     char *data = ctx_data(ctx);
+    char *data_end = ctx_data_end(ctx);
+
     if (l > 2)
         return XDP_DROP;
 
@@ -149,9 +153,20 @@ static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t 
     if (xdp_adjust_head(ctx, num))
         return XDP_DROP;
 
+    //检查是否越界
+    ctx_no_room(data+14+num,data_end);
+
     //拷贝模板
-    if (xdp_store_bytes(ctx,14,usr->template,num,0))
-        return XDP_DROP;
+    switch(num){
+        case 48:
+            __bpf_memcpy(data+14,usr->template,48);
+            break;
+        case 44:
+            __bpf_memcpy(data+14,usr->template,44);
+            break;
+        default:
+            return XDP_DROP;
+    }
 
     //gtp的下一扩展头为零，表示没有下一扩展头
     data[num+14] = 0;

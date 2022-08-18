@@ -21,7 +21,7 @@ struct {
   __type(key, __u32);
   __type(value, config);
   __uint(max_entries, 3);
-} config_route __section(".maps");
+} config_port __section(".maps");
 
 #define ETH_P_IP_SWAPPED 0x0008
 
@@ -69,7 +69,7 @@ static __always_inline int n3_packet_filter(struct xdp_md *ctx) {
 
         //目的地址需要是自己的ip
         __u32 index = 0;
-        config *my_config = map_lookup_elem(&config_route, &index);
+        config *my_config = map_lookup_elem(&config_port, &index);
         if (!my_config || ipv4_hdr->daddr != my_config->ipv4_self)
             return XDP_PASS;
 
@@ -83,7 +83,7 @@ static __always_inline int n3_packet_filter(struct xdp_md *ctx) {
 }
 
 static __always_inline config *get_port_config(__u32* index) {
-    return map_lookup_elem(&config_route, index);
+    return map_lookup_elem(&config_port, index);
 }
 
 #endif /* __LIB_FILTER_H_ */
