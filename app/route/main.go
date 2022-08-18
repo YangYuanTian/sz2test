@@ -18,6 +18,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -94,16 +95,21 @@ func printIPConfig(route *ebpf.Map) {
 	fmt.Printf("config: key %d ==> value %d\n", key, value)
 }
 
+var CpuNum = runtime.NumCPU()
+
 func formatMapContents(m *ebpf.Map) (string, error) {
 	var (
 		sb  strings.Builder
 		key []byte
-		val uint32
+		val []uint32
 	)
 	iter := m.Iterate()
 	for iter.Next(&key, &val) {
+		var packetCount uint32
 		sourceIP := net.IP(key) // IPv4 source address in network byte order.
-		packetCount := val
+		for i := 0; i < len(val); i++ {
+			packetCount += val[i]
+		}
 		sb.WriteString(fmt.Sprintf("\t%s => %d\n", sourceIP, packetCount))
 	}
 	return sb.String(), iter.Err()
