@@ -15,11 +15,26 @@ import (
 
 type bpfConfig struct{ Ipv4Self uint32 }
 
+type bpfStatT struct {
+	TotalReceivedBytes   uint64
+	TotalForwardBytes    uint64
+	TotalReceivedPackets uint64
+	TotalForwardPackets  uint64
+}
+
+type bpfUsrCtxDownLinkT struct {
+	Template [48]int8
+	Flags    uint64
+}
+
+type bpfUsrCtxUplinkT struct{ Flags uint64 }
+
 // loadBpf returns the embedded CollectionSpec for bpf.
 func loadBpf() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_BpfBytes)
 	spec, err := ebpf.LoadCollectionSpecFromReader(reader)
 	if err != nil {
+		fmt.Println(err.Error()+"==============================")
 		return nil, fmt.Errorf("can't load bpf: %w", err)
 	}
 
@@ -56,8 +71,9 @@ type bpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfProgramSpecs struct {
-	XdpProgFunc  *ebpf.ProgramSpec `ebpf:"xdp_prog_func"`
-	XdpProgFunc1 *ebpf.ProgramSpec `ebpf:"xdp_prog_func1"`
+	XdpProgFuncN3   *ebpf.ProgramSpec `ebpf:"xdp_prog_func_n3"`
+	XdpProgFuncN3n6 *ebpf.ProgramSpec `ebpf:"xdp_prog_func_n3n6"`
+	XdpProgFuncN6   *ebpf.ProgramSpec `ebpf:"xdp_prog_func_n6"`
 }
 
 // bpfMapSpecs contains maps before they are loaded into the kernel.
@@ -65,10 +81,11 @@ type bpfProgramSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfMapSpecs struct {
 	CiliumXdpScratch *ebpf.MapSpec `ebpf:"cilium_xdp_scratch"`
-	ConfigRoute      *ebpf.MapSpec `ebpf:"config_route"`
-	ConfigRoute1     *ebpf.MapSpec `ebpf:"config_route1"`
-	XdpStatsMap      *ebpf.MapSpec `ebpf:"xdp_stats_map"`
-	XdpStatsMap1     *ebpf.MapSpec `ebpf:"xdp_stats_map1"`
+	ConfigPort       *ebpf.MapSpec `ebpf:"config_port"`
+	DlStat           *ebpf.MapSpec `ebpf:"dl_stat"`
+	N4TeidMap        *ebpf.MapSpec `ebpf:"n4_teid_map"`
+	N4UeipMap        *ebpf.MapSpec `ebpf:"n4_ueip_map"`
+	UlStat           *ebpf.MapSpec `ebpf:"ul_stat"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -91,19 +108,21 @@ func (o *bpfObjects) Close() error {
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfMaps struct {
 	CiliumXdpScratch *ebpf.Map `ebpf:"cilium_xdp_scratch"`
-	ConfigRoute      *ebpf.Map `ebpf:"config_route"`
-	ConfigRoute1     *ebpf.Map `ebpf:"config_route1"`
-	XdpStatsMap      *ebpf.Map `ebpf:"xdp_stats_map"`
-	XdpStatsMap1     *ebpf.Map `ebpf:"xdp_stats_map1"`
+	ConfigPort       *ebpf.Map `ebpf:"config_port"`
+	DlStat           *ebpf.Map `ebpf:"dl_stat"`
+	N4TeidMap        *ebpf.Map `ebpf:"n4_teid_map"`
+	N4UeipMap        *ebpf.Map `ebpf:"n4_ueip_map"`
+	UlStat           *ebpf.Map `ebpf:"ul_stat"`
 }
 
 func (m *bpfMaps) Close() error {
 	return _BpfClose(
 		m.CiliumXdpScratch,
-		m.ConfigRoute,
-		m.ConfigRoute1,
-		m.XdpStatsMap,
-		m.XdpStatsMap1,
+		m.ConfigPort,
+		m.DlStat,
+		m.N4TeidMap,
+		m.N4UeipMap,
+		m.UlStat,
 	)
 }
 
@@ -111,14 +130,16 @@ func (m *bpfMaps) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfPrograms struct {
-	XdpProgFunc  *ebpf.Program `ebpf:"xdp_prog_func"`
-	XdpProgFunc1 *ebpf.Program `ebpf:"xdp_prog_func1"`
+	XdpProgFuncN3   *ebpf.Program `ebpf:"xdp_prog_func_n3"`
+	XdpProgFuncN3n6 *ebpf.Program `ebpf:"xdp_prog_func_n3n6"`
+	XdpProgFuncN6   *ebpf.Program `ebpf:"xdp_prog_func_n6"`
 }
 
 func (p *bpfPrograms) Close() error {
 	return _BpfClose(
-		p.XdpProgFunc,
-		p.XdpProgFunc1,
+		p.XdpProgFuncN3,
+		p.XdpProgFuncN3n6,
+		p.XdpProgFuncN6,
 	)
 }
 
