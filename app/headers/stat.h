@@ -31,7 +31,7 @@ static __always_inline stat_t * get_dl_stat(__u16 id) {
     return map_lookup_elem(&dl_stat, &key);
 }
 
-static __always_inline struct stat_t * get_ul_stat(__u16 id) {
+static __always_inline  stat_t * get_ul_stat(__u16 id) {
     __u16 key = id;
     return map_lookup_elem(&ul_stat, &key);
 }
