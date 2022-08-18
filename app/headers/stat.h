@@ -12,17 +12,17 @@ typedef struct {
 } stat_t;
 
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, __u16);
     __type(value, stat_t);
-    __uint(max_entries, 256);
+    __uint(max_entries, MAX_MAP_ENTRIES);
 } ul_stat __section(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, __u16);
     __type(value, stat_t);
-    __uint(max_entries, 256);
+    __uint(max_entries, MAX_MAP_ENTRIES);
 } dl_stat __section(".maps");
 
 
