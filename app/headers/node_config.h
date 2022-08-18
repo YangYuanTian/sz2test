@@ -11,6 +11,9 @@
  *
  *
  */
+ #ifndef __NODE_CONFIG_H__
+ #define __NODE_CONFIG_H__
+
 #include "lib/utils.h"
 
 #ifndef NODE_MAC
@@ -23,7 +26,7 @@ DEFINE_IPV6(ROUTER_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 
 #endif
 
 #ifndef MAX_MAP_ENTRIES
-#define MAX_MAP_ENTRIES 16
+#define MAX_MAP_ENTRIES 1024
 #endif
 
 #define HOST_IFINDEX 1
@@ -255,3 +258,6 @@ return false;
 
 #define CIDR_IDENTITY_RANGE_START ((1 << 24) + 1)
 #define CIDR_IDENTITY_RANGE_END   ((1 << 24) + (1<<16) - 1)
+
+
+#endif /* __NODE_CONFIG_H__ */

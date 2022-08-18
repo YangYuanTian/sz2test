@@ -31,7 +31,7 @@ TARGETS := ''
 
 # Build all ELF binaries using a containerized LLVM toolchain.
 container-all:
-	${CONTAINER_ENGINE} run --rm ${CONTAINER_RUN_ARGS} \
+	${CONTAINER_ENGINE} run --rm  ${CONTAINER_RUN_ARGS} \
 		-v "${REPODIR}"/../headers/include:/usr/include \
 		-v "${REPODIR}"/../headers:/usr/local/include \
 		-v "${REPODIR}":/ebpf -w /ebpf --env MAKEFLAGS \

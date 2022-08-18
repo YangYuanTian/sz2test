@@ -1,6 +1,13 @@
 #ifndef __LIB_GTPU_H_
 #define __LIB_GTPU_H_
 
+#include "user.h"
+#include <linux/if_ether.h>
+
+
+#ifndef ADD_GTP_UDP_IP
+#define ADD_GTP_UDP_IP 1
+#endif
 
 struct gtphdr {
 #if defined(__LITTLE_ENDIAN_BITFIELD)
@@ -112,16 +119,16 @@ struct dl_pdu_extension_hdr {
 
 
 //Message Types
-define	GTPU_ECHO_REQUEST  1
-define	GTPU_ECHO_RESPONSE  2
+#define	GTPU_ECHO_REQUEST  1
+#define	GTPU_ECHO_RESPONSE  2
 
-define	GTPU_ERROR_INDICATION  26
+#define	GTPU_ERROR_INDICATION  26
 
-define	GTPU_SUPPORTED_EXTENSION_HEADERS_NOTIFICATION  31
+#define	GTPU_SUPPORTED_EXTENSION_HEADERS_NOTIFICATION  31
 
-define	GTPU_TUNNEL_STATUS  253
-define	GTPU_END_MARKER  254
-define	GTPU_G_PDU  255
+#define	GTPU_TUNNEL_STATUS  253
+#define	GTPU_END_MARKER  254
+#define	GTPU_G_PDU  255
 
 
 static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t *usr,__u16 id) {
@@ -132,31 +139,80 @@ static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t 
     */
 
     __u8 l = usr->template[EXTENT_HEADER_START];
-
+    char *data = ctx_data(ctx);
     if (l > 2)
-        return XDP_DROP
+        return XDP_DROP;
 
-    int num = length * 4 + 8 + 8 + 20;
+    int num = l * 4 + 12 + 8 + 20;
 
     //申请空间
     if (xdp_adjust_head(ctx, num))
         return XDP_DROP;
 
     //拷贝模板
-    if (xdp_store_bytes(ctx,ETH_HLEN,usr->template,num,0))
+    if (xdp_store_bytes(ctx,14,usr->template,num,0))
         return XDP_DROP;
 
     //gtp的下一扩展头为零，表示没有下一扩展头
-    ctx.data[num+ETH_HLEN] = 0;
+    data[num+14] = 0;
 
     //配置ipv4 header中的packet id
-    struct iphdr* hdr = &ctx.data[ETH_HLEN]
+    struct iphdr* hdr = (struct iphdr*)data[14];
     hdr->id = id;
 
     return GO_ON;
 }
 
 
+
+static __always_inline int remove_gtp_udp_ip_header(struct xdp_md *ctx,usr_ctx_uplink_t* usr) {
+
+    char *data = ctx_data(ctx);
+
+    //获取ipv4 header的长度
+    struct iphdr * ipv4hdr = (struct iphdr *)&data[14];
+
+    int ip_len = ipv4hdr->ihl * 4;
+    int hlen = 14 + ip_len + 8;
+    int num = ip_len + 8;
+
+    //获取gtpu的长度
+    if (data[hlen] & 0x07){
+        num += 12;
+        hlen += 12;
+        num += data[hlen] * 4;
+    } else {
+        num += 8;
+    }
+
+    //移除偏移长度
+    if (xdp_adjust_head(ctx, -num))
+        return XDP_DROP;
+
+    return GO_ON;
+}
+
+static __always_inline int parse_teid_and_check_signalling(struct xdp_md *ctx,__u32 * teid) {
+
+    char *data = ctx_data(ctx);
+    void *data_end = ctx_data_end(ctx);
+
+    struct iphdr * ipv4hdr = (struct iphdr *)&data[14];
+    int len = ipv4hdr->ihl * 4 + 8 + 14;
+
+    if (ctx_no_room(data +len, data_end))
+        return XDP_DROP;
+
+    struct gtphdr *gtp_hdr = (struct gtphdr *)&data[len];
+
+     // 分离gtp中的控制信令包与数据流包
+    if (gtp_hdr->message_type != GTPU_G_PDU)
+        return XDP_PASS;
+
+    *teid = gtp_hdr->teid;
+
+    return GO_ON;
+}
 
 
 #endif /* __LIB_GTPU_H_ */

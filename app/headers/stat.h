@@ -16,17 +16,17 @@ struct {
     __type(key, __u16);
     __type(value, stat_t);
     __uint(max_entries, MAX_MAP_ENTRIES);
-} ul_stat SEC(".maps");
+} ul_stat __section(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u16);
     __type(value, stat_t);
     __uint(max_entries, MAX_MAP_ENTRIES);
-} dl_stat SEC(".maps");
+} dl_stat __section(".maps");
 
 
-static __always_inline struct stat_t * get_dl_stat(__u16 id) {
+static __always_inline stat_t * get_dl_stat(__u16 id) {
     __u16 key = id;
     return map_lookup_elem(&dl_stat, &key);
 }

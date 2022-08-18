@@ -1,6 +1,16 @@
+#ifndef __LIB_FILTER_H_
+#define __LIB_FILTER_H_
 
+#include <linux/udp.h>
+
+#ifndef NULL
 #define NULL ((void *)0)
+#endif
+
+#ifndef GO_ON
 #define GO_ON 255
+#endif
+
 typedef struct {
   __u32 ipv4_self;
 } config;
@@ -32,12 +42,13 @@ static __always_inline struct iphdr *parse_ipv4(struct __ctx_buff *ctx) {
    return ipv4_hdr;
 }
 
+#ifndef UDP_DST_PORT_BE
+#define UDP_DST_PORT_BE  0x6808
+#endif
 
-#define UDP_DST_PORT_BE = 0x6808
+static __always_inline int check_udp_gtp_port(struct udphdr *udp_hdr,struct xdp_md* ctx){
 
-static __always_inline int check_udp_gtp_port(struct udphdr *udp_hdr,__ctx_buff* ctx){
-
-    if (ctx_no_room(udp_hdr + 1, data_end) != 0)
+    if (ctx_no_room(udp_hdr + 1, ctx->data_end) != 0)
         return 1;
 
     if(udp_hdr->dest != UDP_DST_PORT_BE)
@@ -48,12 +59,12 @@ static __always_inline int check_udp_gtp_port(struct udphdr *udp_hdr,__ctx_buff*
 
 
 
-static __always_inline int n3_packet_filter(struct xdp_md *ctx,struct iphdr *ipv4_hdr) {
+static __always_inline int n3_packet_filter(struct xdp_md *ctx) {
 
-        ipv4_hdr = parse_ipv4(ctx,__u32 * index);
+        struct iphdr *ipv4_hdr = parse_ipv4(ctx);
 
         //不是ipv4的包，或者不是udp的包，过滤掉
-        if (!ipv4_hdr || ipv4_hdr.protocol != IPPROTO_UDP)
+        if (!ipv4_hdr || ipv4_hdr->protocol != IPPROTO_UDP)
             return XDP_PASS;
 
         //目的地址需要是自己的ip
@@ -70,3 +81,9 @@ static __always_inline int n3_packet_filter(struct xdp_md *ctx,struct iphdr *ipv
 
         return GO_ON;
 }
+
+static __always_inline config *get_port_config(__u32* index) {
+    return map_lookup_elem(&config_route, index);
+}
+
+#endif /* __LIB_FILTER_H_ */
