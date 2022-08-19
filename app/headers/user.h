@@ -48,14 +48,14 @@ struct {
     __type(key, __u32);              // teid
     __type(value, usr_ctx_downLink_t);       // 用户上下文
     __uint(max_entries, MAX_MAP_ENTRIES);        // 最大 entry 数量
-} n4_ueip_map __section(".maps");
+} n4_ueip_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, __u32);
     __type(value, usr_ctx_uplink_t);
     __uint(max_entries, MAX_MAP_ENTRIES);
-} n4_teid_map __section(".maps");
+} n4_teid_map SEC(".maps");
 
 static __always_inline usr_ctx_downLink_t * get_user_ctx_by_ueip_v4(__u32* ueip)
 {

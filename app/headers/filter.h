@@ -8,7 +8,7 @@
 #endif
 
 #ifndef GO_ON
-#define GO_ON 255
+#define GO_ON 99
 #endif
 
 typedef struct {
@@ -48,7 +48,9 @@ static __always_inline struct iphdr *parse_ipv4(struct __ctx_buff *ctx) {
 
 static __always_inline int check_udp_gtp_port(struct udphdr *udp_hdr,struct xdp_md* ctx){
 
-    if (ctx_no_room(udp_hdr + 1, ctx->data_end) != 0)
+    void *data_end = ctx_data_end(ctx);
+
+    if (ctx_no_room(udp_hdr + 1, data_end) != 0)
         return 1;
 
     if(udp_hdr->dest != UDP_DST_PORT_BE)

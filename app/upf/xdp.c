@@ -1,5 +1,13 @@
 // +build ignore
 
+#undef __always_inline
+#define __always_inline inline __attribute__((always_inline))
+
+#define SEC(name)                                                              \
+  _Pragma("GCC diagnostic push")                                               \
+      _Pragma("GCC diagnostic ignored \"-Wignored-attributes\"")               \
+          __attribute__((section(name), used)) _Pragma("GCC diagnostic pop")
+
 #include <bpf/ctx/xdp.h>
 
 #include "node_config.h"
@@ -15,14 +23,14 @@
 #include "route.h"
 #include "stat.h"
 
-char __license[] __section("license") = "Dual MIT/GPL";
+char __license[] SEC("license") = "Dual MIT/GPL";
 
 #ifndef REMOVE_GTP_UDP_IP
 #define REMOVE_GTP_UDP_IP 4
 #endif
 
 // n3入口处理程序
-__section("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
+SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
   // N3 包过滤，保证传递进来的是一个用户转发的GTP数据包
   int next = n3_packet_filter(ctx);
@@ -38,7 +46,7 @@ __section("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
   // 通过teid 查找用户上下文
   usr_ctx_uplink_t *usr = get_user_ctx_by_teid(&teid);
 
-  if (usr == NULL) {
+  if (!usr) {
     return XDP_DROP;
   }
 
@@ -65,20 +73,30 @@ __section("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
   // 如果指示对数据包的操作是去掉GTP/UDP/IP包头，则执行去包头操作
   if (DESC(ind) == REMOVE_GTP_UDP_IP) {
 
-    remove_gtp_udp_ip_header(ctx, usr);
+    next = remove_gtp_udp_ip_header(ctx, usr);
+    //    if (next != GO_ON)
+    //      return next;
 
-    char *data = ctx_data(ctx);
-    struct iphdr *ipv4_hdr = (struct iphdr *)&data[14];
-
-    next = redirect_direct_v4(ctx, ipv4_hdr);
-
-    if (next == XDP_TX || next == XDP_REDIRECT) {
-      // 发包打点
-      if (stat) {
-        stat->total_forward_packets++;
-        stat->total_forward_bytes += (ctx->data_end - ctx->data);
-      }
-    }
+    //    void *data = ctx_data(ctx);
+    //    void *data_end = ctx_data_end(ctx);
+    //
+    //    if (ctx_no_room(data + sizeof(struct ethhdr) + sizeof(struct iphdr),
+    //                    data_end)) {
+    //      return XDP_DROP;
+    //    }
+    //
+    //    struct iphdr *ipv4_hdr = (struct iphdr *)(&data[sizeof(struct
+    //    ethhdr)]);
+    //
+    //    next = redirect_direct_v4(ctx, ipv4_hdr);
+    //
+    //    if (next == XDP_TX || next == XDP_REDIRECT) {
+    //      //   发包打点
+    //      if (stat) {
+    //        stat->total_forward_packets++;
+    //        stat->total_forward_bytes += (ctx->data_end - ctx->data);
+    //      }
+    //    }
 
     return next;
   }
@@ -88,7 +106,7 @@ __section("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 }
 
 // n6入口处理程序
-__section("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
+SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
   // 只处理IP数据包
   struct iphdr *ipv4_hdr = parse_ipv4(ctx);
@@ -112,11 +130,11 @@ __section("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
   // 收包打点
   __u64 ind = usr->flags;
-  stat_t *stat = get_dl_stat(STAT_ID(ind));
-  if (stat) {
-    stat->total_received_packets++;
-    stat->total_received_bytes += (ctx->data_end - ctx->data);
-  }
+  //  stat_t *stat = get_dl_stat(STAT_ID(ind));
+  //  if (stat) {
+  //    stat->total_received_packets++;
+  //    stat->total_received_bytes += (ctx->data_end - ctx->data);
+  //  }
 
   // 如果指示丢包，则直接把包丢弃
   if (DROP(ind)) {
@@ -145,10 +163,10 @@ __section("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
     if (next == XDP_TX || next == XDP_REDIRECT) {
       // 发包打点
-      if (stat) {
-        stat->total_forward_packets++;
-        stat->total_forward_bytes += (ctx->data_end - ctx->data);
-      }
+      //      if (stat) {
+      //        stat->total_forward_packets++;
+      //        stat->total_forward_bytes += (ctx->data_end - ctx->data);
+      //      }
     }
 
     return next;
@@ -158,6 +176,4 @@ __section("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 }
 
 // 如果n3 与 n6共用同一张网卡的时候
-__section("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
-  return XDP_PASS;
-}
+SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) { return XDP_PASS; }

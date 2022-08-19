@@ -1,7 +1,6 @@
 #ifndef __LINUX_STAT_H__
 #define __LINUX_STAT_H__
 
-#include "node_config.h"
 #include <bpf/helpers.h>
 
 typedef struct {
@@ -11,19 +10,23 @@ typedef struct {
     __u64 total_forward_packets;
 } stat_t;
 
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u16);
-    __type(value, stat_t);
-    __uint(max_entries, MAX_MAP_ENTRIES);
-} ul_stat __section(".maps");
+#ifndef MAX_MAP_ENTRIES
+#define MAX_MAP_ENTRIES 1024
+#endif
 
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, __u16);
-    __type(value, stat_t);
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(key_size, sizeof(__u16));
+    __uint(value_size, sizeof(stat_t));
     __uint(max_entries, MAX_MAP_ENTRIES);
-} dl_stat __section(".maps");
+} ul_stat SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(key_size, sizeof(__u16));
+    __uint(value_size, sizeof(stat_t));
+    __uint(max_entries, MAX_MAP_ENTRIES);
+} dl_stat SEC(".maps");
 
 
 static __always_inline stat_t * get_dl_stat(__u16 id) {

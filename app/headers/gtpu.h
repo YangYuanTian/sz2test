@@ -150,7 +150,7 @@ static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t 
     int num = l * 4 + 12 + 8 + 20;
 
     //申请空间
-    if (xdp_adjust_head(ctx, num))
+    if (xdp_adjust_head(ctx, num) != 0)
         return XDP_DROP;
 
     //检查是否越界
@@ -183,42 +183,61 @@ static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t 
 static __always_inline int remove_gtp_udp_ip_header(struct xdp_md *ctx,usr_ctx_uplink_t* usr) {
 
     char *data = ctx_data(ctx);
+    char *data_end = ctx_data_end(ctx);
+
+    if (ctx_no_room(data+sizeof(struct ethhdr)+sizeof(struct iphdr),data_end))
+        return XDP_DROP;
 
     //获取ipv4 header的长度
-    struct iphdr * ipv4hdr = (struct iphdr *)&data[14];
+    struct iphdr * ipv4hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
 
     int ip_len = ipv4hdr->ihl * 4;
     int hlen = 14 + ip_len + 8;
     int num = ip_len + 8;
 
+    if (ctx_no_room(data+hlen,data_end))
+        return XDP_DROP;
+
     //获取gtpu的长度
     if (data[hlen] & 0x07){
         num += 12;
         hlen += 12;
+
+        if (ctx_no_room(data + hlen,data_end))
+            return XDP_DROP;
+
         num += data[hlen] * 4;
+
     } else {
         num += 8;
     }
 
-    //移除偏移长度
-    if (xdp_adjust_head(ctx, -num))
-        return XDP_DROP;
+//    移除偏移长度
 
-    return GO_ON;
+    if (!bpf_xdp_adjust_head(ctx, -num) && num > 0)
+        return GO_ON;
+
+    return XDP_DROP;
 }
 
 static __always_inline int parse_teid_and_check_signalling(struct xdp_md *ctx,__u32 * teid) {
 
     char *data = ctx_data(ctx);
-    void *data_end = ctx_data_end(ctx);
+    char *data_end = ctx_data_end(ctx);
 
-    struct iphdr * ipv4hdr = (struct iphdr *)&data[14];
+    if (ctx_no_room(data+50,data_end))
+        return XDP_DROP;
+
+    struct iphdr * ipv4hdr = (struct iphdr *)(&data[14]);
     int len = ipv4hdr->ihl * 4 + 8 + 14;
 
     if (ctx_no_room(data +len, data_end))
         return XDP_DROP;
 
-    struct gtphdr *gtp_hdr = (struct gtphdr *)&data[len];
+    struct gtphdr *gtp_hdr = (struct gtphdr *)(&data[len]);
+
+    if (ctx_no_room(gtp_hdr+1, data_end))
+        return XDP_DROP;
 
      // 分离gtp中的控制信令包与数据流包
     if (gtp_hdr->message_type != GTPU_G_PDU)
