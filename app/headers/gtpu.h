@@ -133,7 +133,7 @@ struct dl_pdu_extension_hdr {
 #define	GTPU_G_PDU  255
 
 
-static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t *usr,__u16 id) {
+static __always_inline int add_gtp_header_num(struct xdp_md *ctx,usr_ctx_downLink_t *usr,__u16 id) {
 
     /*
         首先判断需要添加多长的字节 需要添加一个GTP头，一个UDP头，一个IP头
@@ -145,37 +145,11 @@ static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t 
     char *data_end = ctx_data_end(ctx);
 
     if (l > 2)
-        return XDP_DROP;
+        return 0;
 
     int num = l * 4 + 12 + 8 + 20;
 
-    //申请空间
-    if (xdp_adjust_head(ctx, num) != 0)
-        return XDP_DROP;
-
-    //检查是否越界
-    ctx_no_room(data+14+num,data_end);
-
-    //拷贝模板
-    switch(num){
-        case 48:
-            __bpf_memcpy(data+14,usr->template,48);
-            break;
-        case 44:
-            __bpf_memcpy(data+14,usr->template,44);
-            break;
-        default:
-            return XDP_DROP;
-    }
-
-    //gtp的下一扩展头为零，表示没有下一扩展头
-    data[num+14] = 0;
-
-    //配置ipv4 header中的packet id
-    struct iphdr* hdr = (struct iphdr*)data[14];
-    hdr->id = id;
-
-    return GO_ON;
+    return num;
 }
 
 
@@ -192,10 +166,14 @@ static __always_inline int gtp_udp_ip_header_len(struct xdp_md *ctx,usr_ctx_upli
     struct iphdr * ipv4hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
 
     int ip_len = ipv4hdr->ihl * 4;
+
+    if (ip_len<20 || ip_len>60)
+        return 0;
+
     int hlen = 14 + ip_len + 8;
     int num = ip_len + 8;
 
-    if (ctx_no_room(data+hlen,data_end))
+    if (ctx_no_room(data+hlen+8,data_end))
         return 0;
 
     //获取gtpu的长度
@@ -203,7 +181,7 @@ static __always_inline int gtp_udp_ip_header_len(struct xdp_md *ctx,usr_ctx_upli
         num += 12;
         hlen += 12;
 
-        if (ctx_no_room(data + hlen,data_end))
+        if (ctx_no_room(data + hlen +1,data_end))
             return 0;
 
         num += data[hlen] * 4;

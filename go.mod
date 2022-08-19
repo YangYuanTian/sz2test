@@ -1,4 +1,4 @@
-module upf
+module test
 
 go 1.15
 

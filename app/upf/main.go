@@ -13,7 +13,6 @@ import (
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/pkg/errors"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -51,16 +50,7 @@ func xdp() {
 	// Load pre-compiled programs into the kernel.
 	objs := bpfObjects{}
 
-	tmp, err := os.MkdirTemp("/sys/fs/bpf", "ebpf-test")
-	if err != nil {
-		panic(err)
-	}
-
-	opts := ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{
-			PinPath: tmp,
-		},
-	}
+	opts := ebpf.CollectionOptions{}
 
 	if err := loadBpfObjects(&objs, &opts); err != nil {
 		l.Fatalf(ctx, "loading objects: %+v", err)

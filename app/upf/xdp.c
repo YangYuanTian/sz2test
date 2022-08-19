@@ -79,26 +79,25 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
     if (len == 0 || xdp_adjust_head(ctx, -len))
       return XDP_DROP;
 
-    //    void *data = ctx_data(ctx);
-    //    void *data_end = ctx_data_end(ctx);
-    //
-    //    if (ctx_no_room(data + sizeof(struct ethhdr) + sizeof(struct iphdr),
-    //                    data_end)) {
-    //      return XDP_DROP;
-    //    }
-    //
-    //    struct iphdr *ipv4_hdr = (struct iphdr *)(&data[sizeof(struct
-    //    ethhdr)]);
-    //
-    //    next = redirect_direct_v4(ctx, ipv4_hdr);
-    //
-    //    if (next == XDP_TX || next == XDP_REDIRECT) {
-    //      //   发包打点
-    //      if (stat) {
-    //        stat->total_forward_packets++;
-    //        stat->total_forward_bytes += (ctx->data_end - ctx->data);
-    //      }
-    //    }
+    void *data = ctx_data(ctx);
+    void *data_end = ctx_data_end(ctx);
+
+    if (ctx_no_room(data + sizeof(struct ethhdr) + sizeof(struct iphdr),
+                    data_end)) {
+      return XDP_DROP;
+    }
+
+    struct iphdr *ipv4_hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
+
+    next = redirect_direct_v4(ctx, ipv4_hdr);
+
+    if (next == XDP_TX || next == XDP_REDIRECT) {
+      //   发包打点
+      if (stat) {
+        stat->total_forward_packets++;
+        stat->total_forward_bytes += (ctx->data_end - ctx->data);
+      }
+    }
 
     return next;
   }
@@ -130,13 +129,14 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
     return XDP_DROP;
   }
 
+  __u16 id = ipv4_hdr->id;
   // 收包打点
   __u64 ind = usr->flags;
-  //  stat_t *stat = get_dl_stat(STAT_ID(ind));
-  //  if (stat) {
-  //    stat->total_received_packets++;
-  //    stat->total_received_bytes += (ctx->data_end - ctx->data);
-  //  }
+  stat_t *stat = get_dl_stat(STAT_ID(ind));
+  if (stat) {
+    stat->total_received_packets++;
+    stat->total_received_bytes += (ctx->data_end - ctx->data);
+  }
 
   // 如果指示丢包，则直接把包丢弃
   if (DROP(ind)) {
@@ -156,19 +156,52 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
   // 如果指示对数据包的操作是增加GTP/UDP/IP包头，则执行加包头操作
   if (DESC(ind) == ADD_GTP_UDP_IP) {
 
-    int next = add_gtp_header(ctx, usr, ipv4_hdr->id);
+    int num = add_gtp_header_num(ctx, usr, ipv4_hdr->id);
 
-    if (next != GO_ON)
-      return next;
+    // 申请空间
+    if (num == 0 || xdp_adjust_head(ctx, num))
+      return XDP_DROP;
 
-    next = redirect_direct_v4(ctx, ipv4_hdr);
+    char *data = ctx_data(ctx);
+    char *data_end = ctx_data_end(ctx);
+
+    char *copy_start = data + sizeof(struct ethhdr);
+
+    if (ctx_no_room(copy_start + 48, data_end))
+      return XDP_DROP;
+    // 拷贝模板
+    switch (num) {
+    case 48:
+      __bpf_memcpy(copy_start, usr->template, 48);
+      break;
+    case 44:
+      __bpf_memcpy(copy_start, usr->template, 44);
+      break;
+    default:
+      return XDP_DROP;
+    }
+
+    // gtp的下一扩展头为零，表示没有下一扩展头
+    if (ctx_no_room(data + num + sizeof(struct ethhdr), data_end))
+      return XDP_DROP;
+
+    // 配置ipv4 header中的packet id
+    struct iphdr *hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
+
+    if (ctx_no_room(data + sizeof(struct ethhdr) + sizeof(struct iphdr),
+                    data_end))
+      return XDP_DROP;
+
+    hdr->id = id;
+
+    int next = redirect_direct_v4(ctx, hdr);
 
     if (next == XDP_TX || next == XDP_REDIRECT) {
       // 发包打点
-      //      if (stat) {
-      //        stat->total_forward_packets++;
-      //        stat->total_forward_bytes += (ctx->data_end - ctx->data);
-      //      }
+      if (stat) {
+        stat->total_forward_packets++;
+        stat->total_forward_bytes += (ctx->data_end - ctx->data);
+      }
     }
 
     return next;

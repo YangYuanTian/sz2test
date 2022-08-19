@@ -15,14 +15,14 @@ typedef struct {
 #endif
 
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(key_size, sizeof(__u16));
     __uint(value_size, sizeof(stat_t));
     __uint(max_entries, MAX_MAP_ENTRIES);
 } ul_stat SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __uint(key_size, sizeof(__u16));
     __uint(value_size, sizeof(stat_t));
     __uint(max_entries, MAX_MAP_ENTRIES);
