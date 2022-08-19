@@ -63,7 +63,7 @@ func xdp() {
 	}
 
 	if err := loadBpfObjects(&objs, &opts); err != nil {
-		l.Fatalf(ctx, "loading objects: %s", err)
+		l.Fatalf(ctx, "loading objects: %+v", err)
 	}
 	defer objs.Close()
 

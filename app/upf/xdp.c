@@ -73,9 +73,11 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
   // 如果指示对数据包的操作是去掉GTP/UDP/IP包头，则执行去包头操作
   if (DESC(ind) == REMOVE_GTP_UDP_IP) {
 
-    next = remove_gtp_udp_ip_header(ctx, usr);
-    //    if (next != GO_ON)
-    //      return next;
+    int len = gtp_udp_ip_header_len(ctx, usr);
+
+    //    移除偏移长度
+    if (len == 0 || xdp_adjust_head(ctx, -len))
+      return XDP_DROP;
 
     //    void *data = ctx_data(ctx);
     //    void *data_end = ctx_data_end(ctx);

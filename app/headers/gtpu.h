@@ -180,13 +180,13 @@ static __always_inline int add_gtp_header(struct xdp_md *ctx,usr_ctx_downLink_t 
 
 
 
-static __always_inline int remove_gtp_udp_ip_header(struct xdp_md *ctx,usr_ctx_uplink_t* usr) {
+static __always_inline int gtp_udp_ip_header_len(struct xdp_md *ctx,usr_ctx_uplink_t* usr) {
 
     char *data = ctx_data(ctx);
     char *data_end = ctx_data_end(ctx);
 
     if (ctx_no_room(data+sizeof(struct ethhdr)+sizeof(struct iphdr),data_end))
-        return XDP_DROP;
+        return 0;
 
     //获取ipv4 header的长度
     struct iphdr * ipv4hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
@@ -196,7 +196,7 @@ static __always_inline int remove_gtp_udp_ip_header(struct xdp_md *ctx,usr_ctx_u
     int num = ip_len + 8;
 
     if (ctx_no_room(data+hlen,data_end))
-        return XDP_DROP;
+        return 0;
 
     //获取gtpu的长度
     if (data[hlen] & 0x07){
@@ -204,7 +204,7 @@ static __always_inline int remove_gtp_udp_ip_header(struct xdp_md *ctx,usr_ctx_u
         hlen += 12;
 
         if (ctx_no_room(data + hlen,data_end))
-            return XDP_DROP;
+            return 0;
 
         num += data[hlen] * 4;
 
@@ -212,12 +212,7 @@ static __always_inline int remove_gtp_udp_ip_header(struct xdp_md *ctx,usr_ctx_u
         num += 8;
     }
 
-//    移除偏移长度
-
-    if (!bpf_xdp_adjust_head(ctx, -num) && num > 0)
-        return GO_ON;
-
-    return XDP_DROP;
+    return num;
 }
 
 static __always_inline int parse_teid_and_check_signalling(struct xdp_md *ctx,__u32 * teid) {
