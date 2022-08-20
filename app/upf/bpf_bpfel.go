@@ -52,7 +52,6 @@ func loadBpf() (*ebpf.CollectionSpec, error) {
 func loadBpfObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
 	spec, err := loadBpf()
 	if err != nil {
-		fmt.Println(err.Error()+"==============================")
 		return err
 	}
 

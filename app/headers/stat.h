@@ -15,27 +15,27 @@ typedef struct {
 #endif
 
 struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(key_size, sizeof(__u16));
-    __uint(value_size, sizeof(stat_t));
-    __uint(max_entries, MAX_MAP_ENTRIES);
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, stat_t);
+	__uint(max_entries, MAX_MAP_ENTRIES);
 } ul_stat SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(key_size, sizeof(__u16));
+    __uint(key_size, sizeof(__u32));
     __uint(value_size, sizeof(stat_t));
     __uint(max_entries, MAX_MAP_ENTRIES);
 } dl_stat SEC(".maps");
 
 
-static __always_inline stat_t * get_dl_stat(__u16 id) {
-    __u16 key = id;
+static __always_inline stat_t * get_dl_stat(__u32 id) {
+    __u32 key = id;
     return map_lookup_elem(&dl_stat, &key);
 }
 
-static __always_inline  stat_t * get_ul_stat(__u16 id) {
-    __u16 key = id;
+static __always_inline  stat_t * get_ul_stat(__u32 id) {
+    __u32 key = id;
     return map_lookup_elem(&ul_stat, &key);
 }
 

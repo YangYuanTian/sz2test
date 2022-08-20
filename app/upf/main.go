@@ -61,7 +61,7 @@ func xdp() {
 		g.Add(1)
 		go func() {
 			defer g.Done()
-			attach(iface1, objs.XdpProgFuncN3, objs.ConfigPort, objs.N4TeidMap)
+			attach(iface1, objs.XdpProgFuncN3, objs.ConfigPort, objs.UlStat)
 		}()
 	}
 
@@ -69,7 +69,7 @@ func xdp() {
 		g.Add(1)
 		go func() {
 			defer g.Done()
-			attach(iface2, objs.XdpProgFuncN6, objs.ConfigPort, objs.N4UeipMap)
+			attach(iface2, objs.XdpProgFuncN6, objs.ConfigPort, objs.DlStat)
 		}()
 	}
 

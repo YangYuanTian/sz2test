@@ -34,7 +34,6 @@ func loadBpf() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_BpfBytes)
 	spec, err := ebpf.LoadCollectionSpecFromReader(reader)
 	if err != nil {
-		fmt.Println(err.Error()+"==============================")
 		return nil, fmt.Errorf("can't load bpf: %w", err)
 	}
 

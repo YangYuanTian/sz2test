@@ -29,83 +29,6 @@ char __license[] SEC("license") = "Dual MIT/GPL";
 #define REMOVE_GTP_UDP_IP 4
 #endif
 
-// n3入口处理程序
-SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
-
-  // N3 包过滤，保证传递进来的是一个用户转发的GTP数据包
-  int next = n3_packet_filter(ctx);
-  if (next != GO_ON)
-    return next;
-
-  // 解析GTP包的teid,并且把信令相关的包丢向内核
-  __u32 teid;
-  next = parse_teid_and_check_signalling(ctx, &teid);
-  if (next != GO_ON)
-    return next;
-
-  // 通过teid 查找用户上下文
-  usr_ctx_uplink_t *usr = get_user_ctx_by_teid(&teid);
-
-  if (!usr) {
-    return XDP_DROP;
-  }
-
-  // 收包打点
-  __u64 ind = usr->flags;
-  __u16 key = STAT_ID(ind);
-
-  stat_t *stat = map_lookup_elem(&ul_stat, &key); //
-  if (stat) {
-    stat->total_received_packets++;
-    stat->total_received_bytes += (ctx->data_end - ctx->data);
-  }
-
-  // 如果指示丢包，则直接把包丢弃
-  if (DROP(ind)) {
-    return XDP_DROP;
-  }
-
-  // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
-  if (PASS(ind)) {
-    return XDP_PASS;
-  }
-
-  // 如果指示对数据包的操作是去掉GTP/UDP/IP包头，则执行去包头操作
-  if (DESC(ind) == REMOVE_GTP_UDP_IP) {
-
-    int len = gtp_udp_ip_header_len(ctx, usr);
-
-    //    移除偏移长度
-    if (len == 0 || xdp_adjust_head(ctx, -len))
-      return XDP_DROP;
-
-    void *data = ctx_data(ctx);
-    void *data_end = ctx_data_end(ctx);
-
-    if (ctx_no_room(data + sizeof(struct ethhdr) + sizeof(struct iphdr),
-                    data_end)) {
-      return XDP_DROP;
-    }
-
-    struct iphdr *ipv4_hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
-
-    next = redirect_direct_v4(ctx, ipv4_hdr);
-
-    if (next == XDP_TX || next == XDP_REDIRECT) {
-      //   发包打点
-      if (stat) {
-        stat->total_forward_packets++;
-        stat->total_forward_bytes += (ctx->data_end - ctx->data);
-      }
-    }
-
-    return next;
-  }
-
-  // 不支持的操作，直接把数据包丢弃
-  return XDP_DROP;
-}
-
 // n6入口处理程序
 SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
@@ -212,3 +135,79 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
 // 如果n3 与 n6共用同一张网卡的时候
 SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) { return XDP_PASS; }
+
+// n3入口处理程序
+SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
+
+  // N3 包过滤，保证传递进来的是一个用户转发的GTP数据包
+  int next = n3_packet_filter(ctx);
+  if (next != GO_ON)
+    return next;
+
+  // 解析GTP包的teid,并且把信令相关的包丢向内核
+  __u32 teid;
+  next = parse_teid_and_check_signalling(ctx, &teid);
+  if (next != GO_ON)
+    return next;
+
+  // 通过teid 查找用户上下文
+  usr_ctx_uplink_t *usr = get_user_ctx_by_teid(&teid);
+
+  if (!usr) {
+    return XDP_DROP;
+  }
+
+  // 收包打点
+  __u64 ind = usr->flags;
+
+  stat_t *stat = get_ul_stat(STAT_ID(ind)); //
+  if (stat) {
+    stat->total_received_packets++;
+    stat->total_received_bytes += (ctx->data_end - ctx->data);
+  }
+
+  // 如果指示丢包，则直接把包丢弃
+  if (DROP(ind)) {
+    return XDP_DROP;
+  }
+
+  // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
+  if (PASS(ind)) {
+    return XDP_PASS;
+  }
+
+  // 如果指示对数据包的操作是去掉GTP/UDP/IP包头，则执行去包头操作
+  if (DESC(ind) == REMOVE_GTP_UDP_IP) {
+
+    int len = gtp_udp_ip_header_len(ctx, usr);
+
+    //    移除偏移长度
+    if (len == 0 || xdp_adjust_head(ctx, -len))
+      return XDP_DROP;
+
+    void *data = ctx_data(ctx);
+    void *data_end = ctx_data_end(ctx);
+
+    if (ctx_no_room(data + sizeof(struct ethhdr) + sizeof(struct iphdr),
+                    data_end)) {
+      return XDP_DROP;
+    }
+
+    struct iphdr *ipv4_hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
+
+    next = redirect_direct_v4(ctx, ipv4_hdr);
+
+    if (next == XDP_TX || next == XDP_REDIRECT) {
+      //   发包打点
+      if (stat) {
+        stat->total_forward_packets++;
+        stat->total_forward_bytes += (ctx->data_end - ctx->data);
+      }
+    }
+
+    return next;
+  }
+
+  // 不支持的操作，直接把数据包丢弃
+  return XDP_DROP;
+}
