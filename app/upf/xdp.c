@@ -18,6 +18,7 @@
 
 #include <bpf/api.h>
 #include <bpf/helpers.h>
+#include <bpf/types_mapper.h>
 #include <lib/eth.h>
 #include <linux/in.h>
 #include <linux/ip.h>
