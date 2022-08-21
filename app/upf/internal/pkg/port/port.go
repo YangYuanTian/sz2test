@@ -23,7 +23,7 @@ type packetType uint8
 const (
 	arpNeighNotFound packetType = iota + 1
 	findRule
-	gTPSignalling
+	gtpSignalling
 )
 
 func NewPort(config *Config) (*Port, error) {
@@ -82,6 +82,16 @@ var allPorts = &ports{
 	ps: make(map[int]*Port),
 }
 
+func (p *ports) GetPort(index int) (*Port, error) {
+
+	port, ok := p.ps[index]
+	if !ok {
+		return nil, gerror.New("port not exist")
+	}
+
+	return port, nil
+
+}
 func (p *ports) addPort(port *Port) error {
 
 	p.m.Lock()
@@ -167,6 +177,8 @@ func (p *Port) Close() error {
 	return syscall.Close(p.fd)
 }
 
+const MacLen = 14
+
 func (p *Port) worker(ctx context.Context) {
 
 	for {
@@ -175,29 +187,43 @@ func (p *Port) worker(ctx context.Context) {
 			return
 		case packet := <-p.receivedPackets:
 			//dispatch packet to different handler
-			if p.InterfaceType == N3 {
+			if len(packet) < 14 {
+				log.Error(ctx, "packet too short")
+				continue
+			}
 
-				if len(packet) < 14 {
+			switch packetType(packet[0]) {
+			case arpNeighNotFound:
+
+				if len(packet) < MacLen {
 					log.Error(ctx, "packet too short")
+				}
+
+				index := int(packet[1])
+
+				port, err := allPorts.GetPort(index)
+				if err != nil {
+					log.Error(ctx, err)
 					continue
 				}
 
-				switch packetType(packet[0]) {
-				case arpNeighNotFound:
+				err = port.Send(packet[MacLen:])
 
-				case gTPSignalling:
-					if err := p.GTPServer.MsgHandle(packet); err != nil {
-						log.Error(ctx, err)
-					}
-				case findRule:
-				default:
-					log.Error(ctx, "unknown packet type")
+				if err != nil {
+					log.Error(ctx, err)
+					continue
 				}
 
-			} else {
+			case gtpSignalling:
+				if err := p.GTPServer.MsgHandle(packet); err != nil {
+					log.Error(ctx, err)
+				}
+			case findRule:
 				if err := p.UserRuler.MsgHandle(packet); err != nil {
 					log.Error(ctx, err)
 				}
+			default:
+				log.Error(ctx, "unknown packet type")
 			}
 		}
 	}

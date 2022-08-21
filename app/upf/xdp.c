@@ -8,6 +8,10 @@
       _Pragma("GCC diagnostic ignored \"-Wignored-attributes\"")               \
           __attribute__((section(name), used)) _Pragma("GCC diagnostic pop")
 
+#define	arpNeighNotFound   1
+#define	    findRule 2
+#define	    gtpSignalling 3
+
 #include <bpf/ctx/xdp.h>
 
 #include "node_config.h"
@@ -22,6 +26,7 @@
 #include "gtpu.h"
 #include "route.h"
 #include "stat.h"
+#include "tools.h"
 
 char __license[] SEC("license") = "Dual MIT/GPL";
 
@@ -61,15 +66,16 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
     stat->total_received_bytes += (ctx->data_end - ctx->data);
   }
 
-  // 如果指示丢包，则直接把包丢弃
-  if (DROP(ind)) {
-    return XDP_DROP;
-  }
-
   // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
   if (PASS(ind)) {
+    set_packet_type(ctx,findRule,0)
     return XDP_PASS;
   }
+
+  // 如果指示丢包，则直接把包丢弃
+    if (DROP(ind)) {
+      return XDP_DROP;
+    }
 
   // 如果上下文指示流控，执行流控操作
   //    next = flow_control(FLOW_CONTROL(ind),ipv4_hdr.id);
@@ -139,6 +145,8 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
         stat->total_forward_packets++;
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
+    } else if (next == XDP_PASS) {
+        set_packet_type(ctx,arpNeighNotFound,__u8(ctx->egress_ifindex))
     }
 
     return next;
@@ -161,6 +169,10 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
   // 解析GTP包的teid,并且把信令相关的包丢向内核
   __u32 teid;
   next = parse_teid_and_check_signalling(ctx, &teid);
+
+  if (next == XDP_PASS)
+    set_packet_type(ctx,gtpSignalling,0);
+
   if (next != GO_ON)
     return next;
 
@@ -180,15 +192,18 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
     stat->total_received_bytes += (ctx->data_end - ctx->data);
   }
 
+// 如果上下文指示把数据包直接透传，则把数据包传递到用户态
+  if (PASS(ind)) {
+    set_packet_type(ctx,findRule,0)
+    return XDP_PASS;
+  }
+
   // 如果指示丢包，则直接把包丢弃
   if (DROP(ind)) {
     return XDP_DROP;
   }
 
-  // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
-  if (PASS(ind)) {
-    return XDP_PASS;
-  }
+
 
   // 如果指示对数据包的操作是去掉GTP/UDP/IP包头，则执行去包头操作
   if (DESC(ind) == REMOVE_GTP_UDP_IP) {
@@ -217,7 +232,9 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
         stat->total_forward_packets++;
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
-    }
+    }else if (next == XDP_PASS) {
+             set_packet_type(ctx,arpNeighNotFound,__u8(ctx->egress_ifindex))
+         }
 
     return next;
   }

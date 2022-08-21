@@ -12,8 +12,9 @@ type rule struct {
 	DropForGateControl bool
 	DropForTest        bool
 
-	PassForTest   bool
-	PassForSample bool
+	PassForTest    bool
+	PassForSample  bool
+	PassForGetRule bool
 
 	StatID      uint16
 	Desc        uint8
