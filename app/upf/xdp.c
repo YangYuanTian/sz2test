@@ -81,17 +81,20 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
     int num = HEADER_LEN(ind);
 
+    if (num > 48 || num <= 0)
+        return XDP_DROP;
+
     // 申请空间
     if (num == 0 || xdp_adjust_head(ctx, num))
       return XDP_DROP;
 
     char *data = ctx_data(ctx);
     char *data_end = ctx_data_end(ctx);
-
     char *copy_start = data + sizeof(struct ethhdr);
 
-    if (ctx_no_room(copy_start + 48, data_end))
+    if (ctx_no_room(copy_start + num, data_end))
       return XDP_DROP;
+
     // 拷贝模板
     switch (num) {
     case 48:
@@ -116,6 +119,17 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
       return XDP_DROP;
 
     hdr->id = id;
+
+    //修正IP报头的长度
+    hdr->tot_len = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr));
+
+    //修正udp报头的长度
+    struct udphdr *udp = (struct udphdr *)(&data[sizeof(struct ethhdr) + sizeof(struct iphdr)]);
+    udp->len = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr) - sizeof(struct iphdr));
+
+    //修正gtp报头的长度
+    struct gtpu_hdr *gtp = (struct gtpu_hdr *)(&data[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr)]);
+    gtp->length = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr) - sizeof(struct iphdr) - sizeof(struct udphdr));
 
     int next = redirect_direct_v4(ctx, hdr);
 
