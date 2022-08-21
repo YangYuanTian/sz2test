@@ -56,7 +56,7 @@ func NewPort(config *Config) (*Port, error) {
 		UserRuler:     config.UserRuler,
 	}
 
-	return p,nil
+	return p, nil
 }
 
 type InterfaceType string
@@ -74,12 +74,12 @@ type Config struct {
 }
 
 type ports struct {
-	ps map[int] *Port
-	m sync.Mutex
+	ps map[int]*Port
+	m  sync.Mutex
 }
 
 var allPorts = &ports{
-    ps: make(map[int]*Port),
+	ps: make(map[int]*Port),
 }
 
 func (p *ports) addPort(port *Port) error {
@@ -87,7 +87,7 @@ func (p *ports) addPort(port *Port) error {
 	p.m.Lock()
 	defer p.m.Unlock()
 
-	_,ok := p.ps.[port.index]
+	_, ok := p.ps[port.index]
 	if ok {
 		return gerror.New("port already exist")
 	}
@@ -96,8 +96,6 @@ func (p *ports) addPort(port *Port) error {
 
 	return nil
 }
-
-
 
 type Packet []byte
 
@@ -126,10 +124,10 @@ func (p *Port) Run(ctx context.Context) error {
 
 	p.fd = fd
 
-	iface ,err := net.InterfaceByName(p.InterfaceName)
+	iface, err := net.InterfaceByName(p.InterfaceName)
 	if err != nil {
-        return gerror.Newf("get interface failed for %s", err)
-    }
+		return gerror.Newf("get interface failed for %s", err)
+	}
 
 	p.index = iface.Index
 
@@ -180,9 +178,9 @@ func (p *Port) worker(ctx context.Context) {
 			if p.InterfaceType == N3 {
 
 				if len(packet) < 14 {
-                    log.Error(ctx, "packet too short")
-                    continue
-                }
+					log.Error(ctx, "packet too short")
+					continue
+				}
 
 				switch packetType(packet[0]) {
 				case arpNeighNotFound:
@@ -195,7 +193,6 @@ func (p *Port) worker(ctx context.Context) {
 				default:
 					log.Error(ctx, "unknown packet type")
 				}
-
 
 			} else {
 				if err := p.UserRuler.MsgHandle(packet); err != nil {
