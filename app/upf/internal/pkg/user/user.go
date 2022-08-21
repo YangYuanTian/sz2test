@@ -83,6 +83,10 @@ func (u *User) UpdateUlRule() error {
 	return nil
 }
 
+func (u *User) UpdateDlRule() error {
+	return nil
+}
+
 func GetUserById(id fmt.Stringer) *User {
 	return users.users[id.String()]
 }

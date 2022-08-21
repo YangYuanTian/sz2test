@@ -39,19 +39,14 @@ func (h *DLHandler) Handle(ctx context.Context, msg []byte) error {
 		return nil
 	}
 
-	if usr.Desc != rule.CreateGTPHeader {
-		log.Debugf(ctx, "user opt  %s not create gtp header", usr.Desc)
+	if err := usr.UpdateDlRule(); err != nil {
+		log.Debugf(ctx, "update dl rule failed: %s", err)
 		return nil
 	}
 
-	// create gtp header
-	gtp := layers.GTPv1U{
-		Version:             1,
-		ProtocolType:        1,
-		MessageType:         255,
-		TEID:                usr.TEID,
-		ExtensionHeaderFlag: true,
-		GTPExtensionHeaders: usr.GetExtendHeader(),
+	if usr.Desc != rule.CreateGTPHeader {
+		log.Debugf(ctx, "user opt  %s not create gtp header", usr.Desc)
+		return nil
 	}
 
 	//marshal packet
