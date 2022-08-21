@@ -30,6 +30,7 @@ func init() {
 	flag.StringVar(&iface2, "iface2", "", "Network interface to attach XDP program to")
 }
 
+// 同步等待
 var g sync.WaitGroup
 
 var ctx = gctx.New()

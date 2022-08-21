@@ -79,7 +79,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
   // 如果指示对数据包的操作是增加GTP/UDP/IP包头，则执行加包头操作
   if (DESC(ind) == ADD_GTP_UDP_IP) {
 
-    int num = add_gtp_header_num(ctx, usr, ipv4_hdr->id);
+    int num = HEADER_LEN(ind);
 
     // 申请空间
     if (num == 0 || xdp_adjust_head(ctx, num))

@@ -15,8 +15,10 @@ type rule struct {
 	PassForTest   bool
 	PassForSample bool
 
-	StatID uint16
-	Desc   uint8
+	StatID      uint16
+	Desc        uint8
+	FlowControl uint8
+	HeaderLen   uint8
 }
 
 func (r *rule) flags() uint64 {
@@ -71,6 +73,7 @@ func (r *DLRule) Update(flag ebpf.MapUpdateFlags) error {
 
 	// And create the packet with the layers
 	buffer := gopacket.NewSerializeBuffer()
+
 	err := gopacket.SerializeLayers(buffer, options,
 		ipLayer,
 		udpLayer,

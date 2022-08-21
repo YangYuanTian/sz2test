@@ -24,6 +24,7 @@ typedef struct {
 #define FLOW_CONTROL(x) ((x>>40) & 0xff)
 #define DESC(x) ((x>>32) & 0xff)
 #define STAT_ID(x) ((x>>16) & 0xffff)
+#define HEADER_LEN(x) ((x>>8) & 0xff)
 
 typedef struct {
 
