@@ -27,12 +27,16 @@ func (r *rule) flags() uint64 {
 //会自动更新xdp map里面的内容,使用结构体的详细字段进行编程当然更友好
 type ULRule struct {
 	Map *ebpf.Map
-
+	Key uint32
 	rule
 }
 
-func (r *ULRule) Update() {
+func (r *ULRule) Update(flag ebpf.MapUpdateFlags) error {
+	bpf := &bpfUsrCtxUplinkT{
+		Flags: r.flags(),
+	}
 
+	return r.Map.Update(r.Key, bpf, flag)
 }
 
 func (r *DLRule) Update(flag ebpf.MapUpdateFlags) error {
