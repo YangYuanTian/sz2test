@@ -231,7 +231,7 @@ func (p *Port) worker(ctx context.Context) {
 					log.Error(ctx, err)
 				}
 			case dlFindRule:
-				if err := p.DlerRuler.MsgHandle(packet); err != nil {
+				if err := p.DlUserRuler.MsgHandle(packet); err != nil {
 					log.Error(ctx, err)
 				}
 			default:

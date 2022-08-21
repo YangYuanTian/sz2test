@@ -9,8 +9,9 @@
           __attribute__((section(name), used)) _Pragma("GCC diagnostic pop")
 
 #define arpNeighNotFound 1
-#define findRule 2
-#define gtpSignalling 3
+#define ul_findRule 2
+#define dl_findRule 3
+#define gtpSignalling 4
 
 #include <bpf/ctx/xdp.h>
 
@@ -75,7 +76,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
   // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
   if (PASS(ind)) {
-    set_packet_type(ctx, findRule, PASS(ind));
+    set_packet_type(ctx, ul_findRule, PASS(ind));
     return XDP_PASS;
   }
 
@@ -200,7 +201,7 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
   // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
   if (PASS(ind)) {
-    set_packet_type(ctx, findRule, PASS(ind));
+    set_packet_type(ctx, ul_findRule, PASS(ind));
     return XDP_PASS;
   }
 
