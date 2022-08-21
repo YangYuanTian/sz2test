@@ -62,10 +62,16 @@ func (h *DLHandler) Handle(ctx context.Context, msg []byte) error {
 	}
 
 	layer := usr.Layers()
-	pkt.Layer(layers.LayerTypeEthernet)
-	layer = append(layer, pkt.Layers()[1:]...)
 
-	err := gopacket.SerializeLayers(buf, opts, usr.Layers()...)
+	layer = append(layer, gopacket.Payload(pkt.Layers()[0].LayerPayload()))
+
+	err := gopacket.SerializeLayers(buf, opts, layer...)
+
+	//send packet
+	if err := h.N3Port.Send(buf.Bytes()); err != nil {
+		log.Errorf(ctx, "send packet error: %s", err)
+		return err
+	}
 
 	return nil
 }
