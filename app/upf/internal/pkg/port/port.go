@@ -129,12 +129,12 @@ type Port struct {
 	receivedPackets chan Packet
 }
 
-var ETH_P_IP_SWAPPED = 0x0008
+var EthPIpSwapped = 0x0008
 
 func (p *Port) Run(ctx context.Context) error {
 
 	fd, err := syscall.Socket(syscall.AF_PACKET,
-		syscall.SOCK_RAW, ETH_P_IP_SWAPPED)
+		syscall.SOCK_RAW, EthPIpSwapped)
 
 	if err != nil {
 		return gerror.Newf("open socket failed for %s", err)
