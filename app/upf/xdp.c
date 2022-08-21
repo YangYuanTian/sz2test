@@ -162,8 +162,6 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
   return XDP_DROP;
 }
 
-// 如果n3 与 n6共用同一张网卡的时候
-SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) { return XDP_PASS; }
 
 // n3入口处理程序
 SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
@@ -246,4 +244,13 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
   // 不支持的操作，直接把数据包丢弃
   return XDP_DROP;
+}
+
+// 如果n3 与 n6共用同一张网卡的时候
+SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
+    int result = xdp_prog_func_n6(ctx)
+    if (result == XDP_PASS)
+        result = xdp_prog_func_n3(ctx)
+        return result;
+    return result;
 }
