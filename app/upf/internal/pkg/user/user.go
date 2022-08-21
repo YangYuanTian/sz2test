@@ -1,6 +1,7 @@
 package user
 
 import (
+	"fmt"
 	"sync"
 	"upf/internal/pkg/rule"
 	"upf/internal/pkg/stat"
@@ -38,9 +39,6 @@ func (u *Users) Add(usr *User) {
 var (
 	users = Users{}
 )
-
-type ULHandler struct {
-}
 
 func NewUser() *User {
 	usr := &User{}
@@ -81,6 +79,10 @@ func (u *User) GetIds() []string {
 	return ids
 }
 
-func GetUserById(id string) *User {
-	return users.users[id]
+func (u *User) UpdateUlRule() error {
+	return nil
+}
+
+func GetUserById(id fmt.Stringer) *User {
+	return users.users[id.String()]
 }

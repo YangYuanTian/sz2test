@@ -8,6 +8,13 @@ import (
 	"net"
 )
 
+type Desc uint8
+
+const (
+	CreateGTPHeader = iota + 1
+	RemoveGTPHeader
+)
+
 type rule struct {
 	DropForGateControl bool
 	DropForTest        bool
