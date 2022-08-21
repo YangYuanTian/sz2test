@@ -34,6 +34,12 @@ char __license[] SEC("license") = "Dual MIT/GPL";
 #define REMOVE_GTP_UDP_IP 4
 #endif
 
+#define ETHLEN 14
+#define IPv4LEN 20
+#define IPv6LEN 40
+#define UDPLEN 8
+#define GTPUHDRLEN 8
+
 // n6入口处理程序
 SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
@@ -68,7 +74,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
   // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
   if (PASS(ind)) {
-    set_packet_type(ctx,findRule,0)
+    set_packet_type(ctx,findRule,0);
     return XDP_PASS;
   }
 
@@ -84,6 +90,8 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
   // 如果指示对数据包的操作是增加GTP/UDP/IP包头，则执行加包头操作
   if (DESC(ind) == ADD_GTP_UDP_IP) {
+
+    __u16 data_len = __u16(ctx->data_end - ctx->data);
 
     int num = HEADER_LEN(ind);
 
@@ -113,29 +121,24 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
       return XDP_DROP;
     }
 
-    // gtp的下一扩展头为零，表示没有下一扩展头
     if (ctx_no_room(data + num + sizeof(struct ethhdr), data_end))
       return XDP_DROP;
 
     // 配置ipv4 header中的packet id
     struct iphdr *hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
 
-    if (ctx_no_room(data + sizeof(struct ethhdr) + sizeof(struct iphdr),
-                    data_end))
-      return XDP_DROP;
-
     hdr->id = id;
 
     //修正IP报头的长度
-    hdr->tot_len = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr));
+    hdr->tot_len = bpf_htons(ctx->data_end - ctx->data - ETHLEN);
 
     //修正udp报头的长度
     struct udphdr *udp = (struct udphdr *)(&data[sizeof(struct ethhdr) + sizeof(struct iphdr)]);
     udp->len = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr) - sizeof(struct iphdr));
 
     //修正gtp报头的长度
-    struct gtpu_hdr *gtp = (struct gtpu_hdr *)(&data[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr)]);
-    gtp->length = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr) - sizeof(struct iphdr) - sizeof(struct udphdr));
+    struct gtpu_hdr *gtp = (struct gtpu_hdr *)(&data[ETHLEN+IPv4LEN+UDPLEN]);
+    gtp->length = bpf_htons(data_len + num -8 - 20 - 8);
 
     int next = redirect_direct_v4(ctx, hdr);
 
@@ -202,8 +205,6 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
   if (DROP(ind)) {
     return XDP_DROP;
   }
-
-
 
   // 如果指示对数据包的操作是去掉GTP/UDP/IP包头，则执行去包头操作
   if (DESC(ind) == REMOVE_GTP_UDP_IP) {

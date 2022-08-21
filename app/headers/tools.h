@@ -9,8 +9,8 @@ static __always_inline set_packet_type(struct xdp_md *ctx, __u8 type, __u8 index
     if (data + sizeof(struct ethhdr) > data_end)
         return XDP_DROP;
 
-    data[0] = type
-    data[1] = index
+    data[0] = type;
+    data[1] = index;
 }
 
 
