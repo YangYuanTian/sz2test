@@ -92,7 +92,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
   // 如果指示对数据包的操作是增加GTP/UDP/IP包头，则执行加包头操作
   if (DESC(ind) == ADD_GTP_UDP_IP) {
 
-    __le16 data_len = __le16(ctx->data_end - ctx->data);
+    __le16 data_len = ctx->data_end - ctx->data;
 
     int num = HEADER_LEN(ind);
 
@@ -198,7 +198,7 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
 // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
   if (PASS(ind)) {
-    set_packet_type(ctx,findRule,0)
+    set_packet_type(ctx,findRule,0);
     return XDP_PASS;
   }
 
