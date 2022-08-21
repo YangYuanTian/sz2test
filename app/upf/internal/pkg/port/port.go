@@ -22,7 +22,8 @@ type packetType uint8
 
 const (
 	arpNeighNotFound packetType = iota + 1
-	findRule
+	ulFindRule
+	dlFindRule
 	gtpSignalling
 )
 
@@ -40,7 +41,11 @@ func NewPort(config *Config) (*Port, error) {
 	}
 
 	//ruler check
-	if config.UserRuler == nil {
+	if config.UlUserRuler == nil && config.InterfaceType == N3 {
+		return nil, gerror.New("user ruler shouldn't be nil")
+	}
+
+	if config.DlUserRuler == nil && config.InterfaceType == N6 {
 		return nil, gerror.New("user ruler shouldn't be nil")
 	}
 
@@ -53,7 +58,8 @@ func NewPort(config *Config) (*Port, error) {
 		InterfaceType: config.InterfaceType,
 		InterfaceName: config.InterfaceName,
 		GTPServer:     config.GTPServer,
-		UserRuler:     config.UserRuler,
+		UlUserRuler:   config.UlUserRuler,
+		DlUserRuler:   config.DlUserRuler,
 	}
 
 	return p, nil
@@ -70,7 +76,8 @@ type Config struct {
 	InterfaceType InterfaceType
 	InterfaceName string
 	GTPServer     MsgHandler
-	UserRuler     MsgHandler
+	UlUserRuler   MsgHandler
+	DlUserRuler   MsgHandler
 }
 
 type ports struct {
@@ -113,8 +120,9 @@ type Port struct {
 	InterfaceType InterfaceType
 	InterfaceName string
 
-	GTPServer MsgHandler
-	UserRuler MsgHandler
+	GTPServer   MsgHandler
+	UlUserRuler MsgHandler
+	DlUserRuler MsgHandler
 
 	fd              int
 	index           int
@@ -218,12 +226,15 @@ func (p *Port) worker(ctx context.Context) {
 				if err := p.GTPServer.MsgHandle(packet); err != nil {
 					log.Error(ctx, err)
 				}
-			case findRule:
-				if err := p.UserRuler.MsgHandle(packet); err != nil {
+			case ulFindRule:
+				if err := p.UlUserRuler.MsgHandle(packet); err != nil {
+					log.Error(ctx, err)
+				}
+			case dlFindRule:
+				if err := p.DlerRuler.MsgHandle(packet); err != nil {
 					log.Error(ctx, err)
 				}
 			default:
-				log.Error(ctx, "unknown packet type")
 			}
 		}
 	}

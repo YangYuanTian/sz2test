@@ -8,9 +8,9 @@
       _Pragma("GCC diagnostic ignored \"-Wignored-attributes\"")               \
           __attribute__((section(name), used)) _Pragma("GCC diagnostic pop")
 
-#define	arpNeighNotFound   1
-#define	    findRule 2
-#define	    gtpSignalling 3
+#define arpNeighNotFound 1
+#define findRule 2
+#define gtpSignalling 3
 
 #include <bpf/ctx/xdp.h>
 
@@ -75,14 +75,14 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
   // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
   if (PASS(ind)) {
-    set_packet_type(ctx,findRule,0);
+    set_packet_type(ctx, findRule, PASS(ind));
     return XDP_PASS;
   }
 
   // 如果指示丢包，则直接把包丢弃
-    if (DROP(ind)) {
-      return XDP_DROP;
-    }
+  if (DROP(ind)) {
+    return XDP_DROP;
+  }
 
   // 如果上下文指示流控，执行流控操作
   //    next = flow_control(FLOW_CONTROL(ind),ipv4_hdr.id);
@@ -97,7 +97,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
     int num = HEADER_LEN(ind);
 
     if (num > 48 || num <= 0)
-        return XDP_DROP;
+      return XDP_DROP;
 
     // 申请空间
     if (num == 0 || xdp_adjust_head(ctx, num))
@@ -130,16 +130,18 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
 
     hdr->id = id;
 
-    //修正IP报头的长度
+    // 修正IP报头的长度
     hdr->tot_len = bpf_htons(ctx->data_end - ctx->data - ETHLEN);
 
-    //修正udp报头的长度
-    struct udphdr *udp = (struct udphdr *)(&data[sizeof(struct ethhdr) + sizeof(struct iphdr)]);
-    udp->len = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr) - sizeof(struct iphdr));
+    // 修正udp报头的长度
+    struct udphdr *udp =
+        (struct udphdr *)(&data[sizeof(struct ethhdr) + sizeof(struct iphdr)]);
+    udp->len = bpf_htons(ctx->data_end - ctx->data - sizeof(struct ethhdr) -
+                         sizeof(struct iphdr));
 
-    //修正gtp报头的长度
-    struct gtpu_hdr *gtp = (struct gtpu_hdr *)(&data[ETHLEN+IPv4LEN+UDPLEN]);
-    gtp->length = bpf_htons(data_len + num -8 - 20 - 8);
+    // 修正gtp报头的长度
+    struct gtphdr *gtp = (struct gtphdr *)(&data[ETHLEN + IPv4LEN + UDPLEN]);
+    gtp->length = bpf_htons(data_len + num - 8 - 20 - 8);
 
     int next = redirect_direct_v4(ctx, hdr);
 
@@ -150,7 +152,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
     } else if (next == XDP_PASS) {
-        set_packet_type(ctx,arpNeighNotFound,__u8(ctx->egress_ifindex))
+      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
@@ -175,7 +177,7 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
   next = parse_teid_and_check_signalling(ctx, &teid);
 
   if (next == XDP_PASS)
-    set_packet_type(ctx,gtpSignalling,0);
+    set_packet_type(ctx, gtpSignalling, 0);
 
   if (next != GO_ON)
     return next;
@@ -196,9 +198,9 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
     stat->total_received_bytes += (ctx->data_end - ctx->data);
   }
 
-// 如果上下文指示把数据包直接透传，则把数据包传递到用户态
+  // 如果上下文指示把数据包直接透传，则把数据包传递到用户态
   if (PASS(ind)) {
-    set_packet_type(ctx,findRule,0);
+    set_packet_type(ctx, findRule, PASS(ind));
     return XDP_PASS;
   }
 
@@ -234,9 +236,9 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
         stat->total_forward_packets++;
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
-    }else if (next == XDP_PASS) {
-             set_packet_type(ctx,arpNeighNotFound,__u8(ctx->egress_ifindex))
-         }
+    } else if (next == XDP_PASS) {
+      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
+    }
 
     return next;
   }

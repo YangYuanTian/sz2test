@@ -14,7 +14,8 @@ type rule struct {
 
 	PassForTest    bool
 	PassForSample  bool
-	PassForGetRule bool
+	PassForGetRule bool //last bit
+	PassForPaging  bool
 
 	StatID      uint16
 	Desc        uint8
