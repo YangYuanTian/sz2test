@@ -15,7 +15,7 @@ import (
 var log = glog.New()
 
 type MsgHandler interface {
-	MsgHandle(msg []byte) error
+	MsgHandle(ctx context.Context, msg []byte) error
 }
 
 type packetType uint8
@@ -223,15 +223,15 @@ func (p *Port) worker(ctx context.Context) {
 				}
 
 			case gtpSignalling:
-				if err := p.GTPServer.MsgHandle(packet); err != nil {
+				if err := p.GTPServer.MsgHandle(ctx, packet); err != nil {
 					log.Error(ctx, err)
 				}
 			case ulFindRule:
-				if err := p.UlUserRuler.MsgHandle(packet); err != nil {
+				if err := p.UlUserRuler.MsgHandle(ctx, packet); err != nil {
 					log.Error(ctx, err)
 				}
 			case dlFindRule:
-				if err := p.DlUserRuler.MsgHandle(packet); err != nil {
+				if err := p.DlUserRuler.MsgHandle(ctx, packet); err != nil {
 					log.Error(ctx, err)
 				}
 			default:

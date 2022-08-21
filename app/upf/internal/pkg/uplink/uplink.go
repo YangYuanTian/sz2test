@@ -19,7 +19,7 @@ type ULHandler struct {
 	ctx    context.Context
 }
 
-func (u *ULHandler) MsgHandle(msg []byte) error {
+func (u *ULHandler) MsgHandle(ctx context.Context, msg []byte) error {
 	pkt := gopacket.NewPacket(msg, layers.LayerTypeEthernet, gopacket.Default)
 	if pkt == nil {
 		return nil

@@ -25,7 +25,7 @@ type rule struct {
 	PassForPaging  bool
 
 	StatID      uint16
-	Desc        uint8
+	Desc        Desc
 	FlowControl uint8
 	HeaderLen   uint8
 }
@@ -52,29 +52,6 @@ func (r *ULRule) Update(flag ebpf.MapUpdateFlags) error {
 
 func (r *DLRule) Update(flag ebpf.MapUpdateFlags) error {
 
-	ipLayer := &layers.IPv4{
-		Protocol: layers.IPProtocolUDP,
-		IHL:      0x45,
-		TTL:      0x80,
-		Id:       0x1234,
-		SrcIP:    r.SrcIP,
-		DstIP:    r.GNBIP,
-	}
-
-	udpLayer := &layers.UDP{
-		SrcPort: layers.UDPPort(2152),
-		DstPort: layers.UDPPort(2152),
-	}
-
-	gtpLayer := &layers.GTPv1U{
-		Version:             1,
-		ProtocolType:        1,
-		ExtensionHeaderFlag: true,
-		MessageType:         255,
-		TEID:                r.TEID,
-		GTPExtensionHeaders: nil,
-	}
-
 	options := gopacket.SerializeOptions{
 		FixLengths:       false,
 		ComputeChecksums: false,
@@ -83,10 +60,10 @@ func (r *DLRule) Update(flag ebpf.MapUpdateFlags) error {
 	// And create the packet with the layers
 	buffer := gopacket.NewSerializeBuffer()
 
-	err := gopacket.SerializeLayers(buffer, options,
-		ipLayer,
-		udpLayer,
-		gtpLayer,
+	err := gopacket.SerializeLayers(
+		buffer,
+		options,
+		r.Layers()...,
 	)
 
 	if err != nil {
@@ -122,6 +99,41 @@ type DLRule struct {
 	PPP   bool
 	PPI   bool
 	QFI   uint8
+}
+
+func (d *DLRule) GetExtendHeader() []layers.GTPExtensionHeader {
+	return nil
+}
+
+func (r *DLRule) Layers() []gopacket.SerializableLayer {
+	ipLayer := &layers.IPv4{
+		Protocol: layers.IPProtocolUDP,
+		IHL:      0x45,
+		TTL:      0x80,
+		Id:       0x1234,
+		SrcIP:    r.SrcIP,
+		DstIP:    r.GNBIP,
+	}
+
+	udpLayer := &layers.UDP{
+		SrcPort: layers.UDPPort(2152),
+		DstPort: layers.UDPPort(2152),
+	}
+
+	gtpLayer := &layers.GTPv1U{
+		Version:             1,
+		ProtocolType:        1,
+		ExtensionHeaderFlag: true,
+		MessageType:         255,
+		TEID:                r.TEID,
+		GTPExtensionHeaders: r.GetExtendHeader(),
+	}
+
+	return []gopacket.SerializableLayer{
+		ipLayer,
+		udpLayer,
+		gtpLayer,
+	}
 }
 
 type bpfUsrCtxDownLinkT struct {
