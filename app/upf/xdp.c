@@ -63,7 +63,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
     return XDP_DROP;
   }
 
-  __u16 id = ipv4_hdr->id;
+  __be16 id = ipv4_hdr->id;
   // 收包打点
   __u64 ind = usr->flags;
   stat_t *stat = get_dl_stat(STAT_ID(ind));
@@ -91,7 +91,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
   // 如果指示对数据包的操作是增加GTP/UDP/IP包头，则执行加包头操作
   if (DESC(ind) == ADD_GTP_UDP_IP) {
 
-    __u16 data_len = __u16(ctx->data_end - ctx->data);
+    __le16 data_len = __le16(ctx->data_end - ctx->data);
 
     int num = HEADER_LEN(ind);
 
