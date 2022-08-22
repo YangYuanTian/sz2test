@@ -15,7 +15,7 @@ const (
 	RemoveGTPHeader
 )
 
-type rule struct {
+type Rule struct {
 	DropForGateControl bool
 	DropForTest        bool
 
@@ -30,7 +30,7 @@ type rule struct {
 	HeaderLen   uint8
 }
 
-func (r *rule) flags() uint64 {
+func (r *Rule) flags() uint64 {
 	return 0
 }
 
@@ -39,7 +39,7 @@ func (r *rule) flags() uint64 {
 type ULRule struct {
 	Map *ebpf.Map
 	Key uint32
-	rule
+	Rule
 }
 
 func (r *ULRule) Update(flag ebpf.MapUpdateFlags) error {
@@ -91,7 +91,7 @@ type DLRule struct {
 	Map *ebpf.Map
 	Key uint32
 
-	rule
+	Rule
 
 	TEID  uint32
 	GNBIP net.IP

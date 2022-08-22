@@ -25,6 +25,14 @@ type User struct {
 	DLStat stat.Stat
 }
 
+func (u *User) Save() error {
+	err := u.ULRule.Update(ebpf.UpdateAny)
+	if err != nil {
+		return err
+	}
+	return u.DLRule.Update(ebpf.UpdateAny)
+}
+
 type Users struct {
 	users map[string]*User
 	m     sync.RWMutex
