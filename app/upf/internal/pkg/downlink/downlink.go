@@ -16,7 +16,6 @@ var log = glog.New()
 type DLHandler struct {
 	N3Port *port.Port
 	N6Port *port.Port
-	ctx    context.Context
 }
 
 func (h *DLHandler) Handle(ctx context.Context, msg []byte) error {
@@ -61,6 +60,10 @@ func (h *DLHandler) Handle(ctx context.Context, msg []byte) error {
 	layer = append(layer, gopacket.Payload(pkt.Layers()[0].LayerPayload()))
 
 	err := gopacket.SerializeLayers(buf, opts, layer...)
+	if err != nil {
+		log.Debugf(ctx, "serialize layers failed: %s", err)
+		return nil
+	}
 
 	//send packet
 	if err := h.N3Port.Send(buf.Bytes()); err != nil {

@@ -154,7 +154,7 @@ static __always_inline int add_gtp_header_num(struct xdp_md *ctx,usr_ctx_downLin
 
 
 
-static __always_inline int gtp_udp_ip_header_len(struct xdp_md *ctx,usr_ctx_uplink_t* usr) {
+static __always_inline int gtp_udp_ip_header_len(struct xdp_md *ctx) {
 
     char *data = ctx_data(ctx);
     char *data_end = ctx_data_end(ctx);

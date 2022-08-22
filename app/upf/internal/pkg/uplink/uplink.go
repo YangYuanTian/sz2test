@@ -16,7 +16,6 @@ var log = glog.New()
 type ULHandler struct {
 	N3Port *port.Port
 	N6Port *port.Port
-	ctx    context.Context
 }
 
 func (u *ULHandler) MsgHandle(ctx context.Context, msg []byte) error {
@@ -27,7 +26,7 @@ func (u *ULHandler) MsgHandle(ctx context.Context, msg []byte) error {
 
 	gtp := pkt.Layer(layers.LayerTypeGTPv1U)
 	if gtp == nil {
-		log.Debugf(u.ctx, "no gtp layer")
+		log.Debugf(ctx, "no gtp layer")
 		return nil
 	}
 
@@ -36,7 +35,7 @@ func (u *ULHandler) MsgHandle(ctx context.Context, msg []byte) error {
 	usr := user.GetUserById(id.TEID(gtpu.TEID))
 
 	if usr == nil {
-		log.Debugf(u.ctx, "not found user with teid:%d", gtpu.TEID)
+		log.Debugf(ctx, "not found user with teid:%d", gtpu.TEID)
 		return nil
 	}
 
