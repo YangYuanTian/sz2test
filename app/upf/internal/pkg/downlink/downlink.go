@@ -50,6 +50,7 @@ func (h *DLHandler) Handle(ctx context.Context, msg []byte) error {
 
 	//marshal packet
 	buf := gopacket.NewSerializeBuffer()
+
 	opts := gopacket.SerializeOptions{
 		FixLengths:       true,
 		ComputeChecksums: true,
