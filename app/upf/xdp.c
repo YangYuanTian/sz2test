@@ -152,7 +152,7 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
     } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, 0);
+      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
@@ -233,7 +233,7 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
     } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, 0);
+      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
@@ -353,7 +353,7 @@ SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
     } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, 0);
+      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
@@ -432,7 +432,7 @@ N3:
         stat_ul->total_forward_bytes += (ctx->data_end - ctx->data);
       }
     } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, 0);
+      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
