@@ -18,7 +18,7 @@ type DLHandler struct {
 	N6Port *port.Port
 }
 
-func (h *DLHandler) Handle(ctx context.Context, msg []byte) error {
+func (h *DLHandler) MsgHandle(ctx context.Context, msg []byte) error {
 
 	pkt := gopacket.NewPacket(msg, layers.LayerTypeEthernet, gopacket.Default)
 	log.Debug(ctx, "downlink message: %s", pkt)
@@ -43,8 +43,8 @@ func (h *DLHandler) Handle(ctx context.Context, msg []byte) error {
 		return nil
 	}
 
-	if usr.Desc != rule.CreateGTPHeader {
-		log.Debugf(ctx, "user opt  %s not create gtp header", usr.Desc)
+	if usr.DLRule.DescAction != rule.CreateGTPHeader {
+		log.Debugf(ctx, "user opt  %s not create gtp header", usr.DLRule.DescAction)
 		return nil
 	}
 

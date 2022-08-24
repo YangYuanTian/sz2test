@@ -5,17 +5,27 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/gogf/gf/v2/os/gctx"
 	"github.com/gogf/gf/v2/os/glog"
+	"github.com/gogf/gf/v2/util/gutil"
 	"github.com/pkg/errors"
+	"log"
 	"net"
 	"strings"
 	"sync"
+	"time"
 	"upf/internal/cmd"
+	"upf/internal/pkg/controller"
+	"upf/internal/pkg/downlink"
+	"upf/internal/pkg/gtpserver"
+	"upf/internal/pkg/mock"
+	"upf/internal/pkg/port"
+	"upf/internal/pkg/uplink"
 )
 
 // $BPF_CLANG and $BPF_CFLAGS are set by the Makefile.
@@ -46,6 +56,15 @@ func main() {
 	xdp()
 }
 
+var defaultUser = mock.Config{
+	TEID:    0x001e8480,
+	GNBTEID: 0,
+	UEIP:    []byte{10, 55, 7, 2},
+	StatID:  0,
+	GNBIP:   []byte{172, 20, 0, 30},
+	N3IP:    []byte{172, 20, 138, 203},
+}
+
 func xdp() {
 	flag.Parse()
 
@@ -69,21 +88,34 @@ func xdp() {
 		isSameInterface = true
 	}
 
+	var link1 link.Link
+	var link2 link.Link
+
+	defer func() {
+
+		if link1 != nil {
+			link1.Close()
+		}
+
+		if link2 != nil {
+			link2.Close()
+		}
+	}()
+
 	if isSameInterface {
 		// Attach the XDP program to the network interface.
+		l.Info(ctx, "use same interface=======")
 		g.Add(1)
 		go func() {
-			go func() {
-				defer g.Done()
-				attach(iface1, &objs, n3n6Interface)
-			}()
+			defer g.Done()
+			link1 = attach(iface1, &objs, n3n6Interface)
 		}()
 	} else {
 		if iface1 != "" {
 			g.Add(1)
 			go func() {
 				defer g.Done()
-				attach(iface1, &objs, n3Interface)
+				link1 = attach(iface1, &objs, n3Interface)
 			}()
 		}
 
@@ -91,9 +123,68 @@ func xdp() {
 			g.Add(1)
 			go func() {
 				defer g.Done()
-				attach(iface2, &objs, n6Interface)
+				link2 = attach(iface2, &objs, n6Interface)
 			}()
 		}
+	}
+
+	usr := mock.User{
+		DlStat: objs.DlStat,
+		UlStat: objs.UlStat,
+		UlRule: objs.N4TeidMap,
+		DlRule: objs.N4UeipMap,
+	}
+
+	//批量创建mock用户
+	for x := 0; x < 200; x++ {
+
+		c := defaultUser
+		c.UEIP[3] += uint8(x)
+		c.TEID += uint32(x)
+		c.GNBTEID += uint32(x)
+		c.StatID += uint16(x)
+
+		mockedUser := usr.CreateMockUser(c)
+		if err := mockedUser.Save(); err != nil {
+			log.Fatalf("mocked user save failed %+v", err)
+		}
+	}
+
+	g.Add(1)
+	ctl := controller.Controller{
+
+		Interval: time.Second * 2,
+
+		Ctx: context.Background(),
+	}
+	go func() {
+
+		defer g.Done()
+
+		ctl.Loop()
+	}()
+
+	p, err := port.NewPort(&port.Config{
+		InterfaceType: n3n6Interface,
+		InterfaceName: "enp1s0f1",
+		GTPServer:     &gtpserver.GtpServer{},
+		UlUserRuler:   &uplink.ULHandler{},
+		DlUserRuler:   &downlink.DLHandler{},
+	})
+
+	if err != nil {
+		log.Fatalf("port create failed %+v", err)
+	}
+
+	go func() {
+		if err := p.Pcap(ctx); err != nil {
+			log.Fatalf("pcap failed %+v", err)
+		}
+
+	}()
+
+	if err := p.Run(ctx); err != nil {
+		log.Fatalf("port run failed %+v", err)
 	}
 
 	g.Wait()
@@ -184,7 +275,7 @@ func configMyIpaddress(m *ebpf.Map, nic *net.Interface, mod string) error {
 	return nil
 }
 
-func attach(interfaceName string, c *bpfObjects, mod string) {
+func attach(interfaceName string, c *bpfObjects, mod string) link.Link {
 
 	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
@@ -201,12 +292,12 @@ func attach(interfaceName string, c *bpfObjects, mod string) {
 		prog = c.XdpProgFuncN3n6
 	}
 
+	gutil.Dump(prog)
+
 	link, err := link.AttachXDP(link.XDPOptions{
 		Program:   prog,
 		Interface: iface.Index,
 	})
-
-	defer link.Close()
 
 	err = configMyIpaddress(c.ConfigPort, iface, mod)
 	if err != nil {
@@ -217,5 +308,5 @@ func attach(interfaceName string, c *bpfObjects, mod string) {
 
 	l.Infof(ctx, "Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
 	l.Infof(ctx, "Press Ctrl-C to exit and remove the program")
-
+	return link
 }

@@ -33,7 +33,7 @@
 char __license[] SEC("license") = "Dual MIT/GPL";
 
 #ifndef REMOVE_GTP_UDP_IP
-#define REMOVE_GTP_UDP_IP 4
+#define REMOVE_GTP_UDP_IP 2
 #endif
 
 #define ETHLEN 14
@@ -151,8 +151,6 @@ SEC("xdp/n6") int xdp_prog_func_n6(struct xdp_md *ctx) {
         stat->total_forward_packets++;
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
-    } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
@@ -232,8 +230,6 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
         stat->total_forward_packets++;
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
-    } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
@@ -245,14 +241,17 @@ SEC("xdp/n3") int xdp_prog_func_n3(struct xdp_md *ctx) {
 
 // 如果n3 与 n6共用同一张网卡的时候
 SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
+
   // 只处理IP数据包
   struct iphdr *ipv4_hdr = parse_ipv4(ctx);
   int next = XDP_PASS;
+  struct udphdr *udp_hdr;
+
   if (!ipv4_hdr)
     return XDP_PASS;
 
   // 检查目的IP地址，如果是目的地址是本机，则直接把数据包丢往内核
-  __u32 port = 1;
+  __u32 port = 0;
   config *my_config = get_port_config(&port);
   if (!my_config || ipv4_hdr->daddr == my_config->ipv4_self)
     goto N3;
@@ -352,8 +351,6 @@ SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
         stat->total_forward_packets++;
         stat->total_forward_bytes += (ctx->data_end - ctx->data);
       }
-    } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;
@@ -363,12 +360,17 @@ SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
 
 N3:
   // N3 包过滤，保证传递进来的是一个用户转发的GTP数据包
-  next = n3_packet_filter(ctx);
-  if (next != GO_ON)
-    return next;
+  udp_hdr = (struct udphdr *)(ipv4_hdr + 1);
+
+  // 不是ipv4的包，或者不是udp的包，过滤掉
+  if (ipv4_hdr->protocol != IPPROTO_UDP)
+    return XDP_PASS;
+
+  if (check_udp_gtp_port(udp_hdr, ctx))
+    return XDP_PASS;
 
   // 解析GTP包的teid,并且把信令相关的包丢向内核
-  __u32 teid;
+  __u32 teid = 0;
   next = parse_teid_and_check_signalling(ctx, &teid);
 
   if (next == XDP_PASS)
@@ -410,7 +412,7 @@ N3:
     int len = gtp_udp_ip_header_len(ctx);
 
     //    移除偏移长度
-    if (len == 0 || xdp_adjust_head(ctx, -len))
+    if (len == 0 || xdp_adjust_head(ctx, len))
       return XDP_DROP;
 
     void *data = ctx_data(ctx);
@@ -420,6 +422,10 @@ N3:
                     data_end)) {
       return XDP_DROP;
     }
+
+    // 恢复eth头
+    struct ethhdr *eth = (struct ethhdr *)data;
+    eth->h_proto = ETH_P_IP_SWAPPED;
 
     struct iphdr *ipv4_hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
 
@@ -431,8 +437,6 @@ N3:
         stat_ul->total_forward_packets++;
         stat_ul->total_forward_bytes += (ctx->data_end - ctx->data);
       }
-    } else if (next == XDP_PASS) {
-      set_packet_type(ctx, arpNeighNotFound, ctx->egress_ifindex);
     }
 
     return next;

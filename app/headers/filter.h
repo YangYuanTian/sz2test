@@ -29,7 +29,7 @@ static __always_inline struct iphdr *parse_ipv4(struct __ctx_buff *ctx) {
     void *data_end = ctx_data_end(ctx);
     void *data = ctx_data(ctx);
 
-    struct iphdr *ipv4_hdr = data + sizeof(struct ethhdr);
+    struct iphdr *ipv4_hdr = (struct iphdr *)(data + sizeof(struct ethhdr));
     struct ethhdr *eth = data;
 
     if (ctx_no_room(ipv4_hdr + 1, data_end) ||

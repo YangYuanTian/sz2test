@@ -20,7 +20,7 @@ func (r *RuleGetter) GetDlRule(usr *user.User) *rule.DLRule {
 		GNBIP: nil,
 		SrcIP: nil,
 		PPP:   false,
-		PPI:   false,
+		PPI:   0,
 		QFI:   0,
 	}
 }

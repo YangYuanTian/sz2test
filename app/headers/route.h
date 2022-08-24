@@ -1,6 +1,7 @@
 #ifndef __LIB_ROUTE_H_
 #define __LIB_ROUTE_H_
 
+#include "tools.h"
 
 #ifndef AF_INET
 #define AF_INET 2
@@ -93,6 +94,7 @@ static __always_inline int redirect_direct_v4(struct __ctx_buff *ctx,
   case BPF_FIB_LKUP_RET_SUCCESS:
     break;
   case BPF_FIB_LKUP_RET_NO_NEIGH:
+    set_packet_type(ctx, arpNeighNotFound, fib_params.ifindex);
     return XDP_PASS;
   default:
     return XDP_DROP;

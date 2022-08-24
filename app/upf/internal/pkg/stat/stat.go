@@ -3,7 +3,10 @@ package stat
 import (
 	"github.com/cilium/ebpf"
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/gogf/gf/v2/os/glog"
 )
+
+var log = glog.New()
 
 type bpfStatT struct {
 	TotalReceivedBytes   uint64
@@ -21,12 +24,12 @@ type Stat struct {
 	bpfStatT
 }
 
-//Reflesh pull data from map
-func (s *Stat) Reflesh() error {
+// Refresh pull data from map
+func (s *Stat) Refresh() error {
 
 	var bpfStat []bpfStatT
 
-	err := s.Map.Lookup(s.Key, &bpfStat)
+	err := s.Map.Lookup(&s.Key, &bpfStat)
 	if err != nil {
 		return err
 	}
@@ -36,7 +39,7 @@ func (s *Stat) Reflesh() error {
 			"stat not found with key: %d",
 			s.Key)
 	}
-
+	log.Debugf(nil, "get cores:%d", len(bpfStat))
 	for x := 1; x < len(bpfStat); x++ {
 		bpfStat[0].TotalReceivedBytes += bpfStat[x].TotalReceivedBytes
 		bpfStat[0].TotalForwardBytes += bpfStat[x].TotalForwardBytes

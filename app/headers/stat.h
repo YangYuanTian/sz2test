@@ -11,7 +11,7 @@ typedef struct {
 } stat_t;
 
 #ifndef MAX_MAP_ENTRIES
-#define MAX_MAP_ENTRIES 1024
+#define MAX_MAP_ENTRIES 10020
 #endif
 
 struct {

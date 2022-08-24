@@ -44,7 +44,7 @@ func (u *ULHandler) MsgHandle(ctx context.Context, msg []byte) error {
 		return err
 	}
 
-	if usr.Desc != rule.RemoveGTPHeader {
+	if usr.ULRule.DescAction != rule.RemoveGTPHeader {
 		return nil
 	}
 

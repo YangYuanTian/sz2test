@@ -1,15 +1,19 @@
 // Package port  will receive packet from port
-//then dispatch them to different handler,
-//and send packet using config port
+// then dispatch them to different handler,
+// and send packet using config port
 package port
 
 import (
 	"context"
+	"fmt"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/os/glog"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"net"
 	"sync"
 	"syscall"
+	"upf/internal/pkg/port/pcap"
 )
 
 var log = glog.New()
@@ -55,11 +59,13 @@ func NewPort(config *Config) (*Port, error) {
 	}
 
 	p := &Port{
-		InterfaceType: config.InterfaceType,
-		InterfaceName: config.InterfaceName,
-		GTPServer:     config.GTPServer,
-		UlUserRuler:   config.UlUserRuler,
-		DlUserRuler:   config.DlUserRuler,
+		InterfaceType:   config.InterfaceType,
+		InterfaceName:   config.InterfaceName,
+		GTPServer:       config.GTPServer,
+		UlUserRuler:     config.UlUserRuler,
+		DlUserRuler:     config.DlUserRuler,
+		receivedPackets: make(chan Packet, 10000),
+		pcapChan:        make(chan Packet, 10000),
 	}
 
 	return p, nil
@@ -116,6 +122,13 @@ func (p *ports) addPort(port *Port) error {
 
 type Packet []byte
 
+func (p Packet) String() string {
+
+	pkt := gopacket.NewPacket(p, layers.LayerTypeEthernet, gopacket.Default)
+
+	return pkt.Dump()
+}
+
 type Port struct {
 	InterfaceType InterfaceType
 	InterfaceName string
@@ -127,6 +140,9 @@ type Port struct {
 	fd              int
 	index           int
 	receivedPackets chan Packet
+
+	setUpPcap bool
+	pcapChan  chan Packet
 }
 
 var EthPIpSwapped = 0x0008
@@ -162,12 +178,19 @@ func (p *Port) Run(ctx context.Context) error {
 				return
 			default:
 				buf := make([]byte, 2048)
+
 				n, err := syscall.Read(fd, buf)
+
 				if err != nil {
 					log.Error(ctx, err)
 					continue
 				}
+
 				p.receivedPackets <- buf[:n]
+
+				if p.setUpPcap {
+					p.pcapChan <- buf[:n]
+				}
 			}
 		}
 	}()
@@ -203,11 +226,17 @@ func (p *Port) worker(ctx context.Context) {
 			switch packetType(packet[0]) {
 			case arpNeighNotFound:
 
+				log.Debugf(ctx, "handle arp not found request\n")
+
+				log.Debugf(ctx, "packet info :%s\n", packet)
+
 				if len(packet) < MacLen {
 					log.Error(ctx, "packet too short")
 				}
 
 				index := int(packet[1])
+
+				log.Debugf(ctx, "get index port of %d", index)
 
 				port, err := allPorts.GetPort(index)
 				if err != nil {
@@ -235,6 +264,29 @@ func (p *Port) worker(ctx context.Context) {
 					log.Error(ctx, err)
 				}
 			default:
+			}
+		}
+	}
+}
+
+func (p *Port) Pcap(ctx context.Context) error {
+	p.setUpPcap = true
+
+	cap, err := pcap.NewPcap(fmt.Sprintf("%s", p.InterfaceName))
+
+	if err != nil {
+		return err
+	}
+
+	defer cap.Close()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case pkt := <-p.pcapChan:
+			if err := cap.WritePcap(pkt); err != nil {
+				return err
 			}
 		}
 	}

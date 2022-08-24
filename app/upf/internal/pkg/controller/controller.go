@@ -10,49 +10,52 @@ import (
 var log = glog.New()
 
 type Controller struct {
-	interval time.Duration
-	ctx      context.Context
+	Interval time.Duration
+	Ctx      context.Context
 }
 
 func (c *Controller) Loop() {
 	//获取用户的状态数据
 
-	ticker := time.NewTicker(c.interval)
+	ticker := time.NewTicker(c.Interval)
 	defer ticker.Stop()
 
+	log.Debugf(c.Ctx, user.Print())
+
 	f := func(usr *user.User) error {
-		err := usr.ULStat.Reflesh()
+		err := usr.ULStat.Refresh()
 		if err != nil {
-			log.Errorf(c.ctx, "reflesh user %s error %s", usr.Name(), err)
+			log.Errorf(c.Ctx, "refresh  user %s error %s", usr.Name(), err)
 			return nil
 		}
 
-		log.Debugf(c.ctx, "reflesh user %s ul stat success", usr.Name())
-		log.Debugf(c.ctx, "TotalReceivedPackets:%d", usr.ULStat.TotalReceivedPackets)
-		log.Debugf(c.ctx, "TotalReceivedBytes:%d", usr.ULStat.TotalReceivedBytes)
-		log.Debugf(c.ctx, "TotalForwardPackets:%d", usr.ULStat.TotalForwardPackets)
-		log.Debugf(c.ctx, "TotalForwardBytes:%d", usr.ULStat.TotalForwardBytes)
+		log.Debugf(c.Ctx, "refresh user %s ul stat success", usr.Name())
+		log.Debugf(c.Ctx, "TotalReceivedPackets:%d", usr.ULStat.TotalReceivedPackets)
+		log.Debugf(c.Ctx, "TotalReceivedBytes:%d", usr.ULStat.TotalReceivedBytes)
+		log.Debugf(c.Ctx, "TotalForwardPackets:%d", usr.ULStat.TotalForwardPackets)
+		log.Debugf(c.Ctx, "TotalForwardBytes:%d", usr.ULStat.TotalForwardBytes)
 
-		err = usr.DLStat.Reflesh()
+		err = usr.DLStat.Refresh()
 		if err != nil {
-			log.Errorf(c.ctx, "reflesh user %s error %s", usr.Name(), err)
+			log.Errorf(c.Ctx, "refresh user %s error %s", usr.Name(), err)
 			return nil
 		}
 
-		log.Debugf(c.ctx, "reflesh user dl stat %s success", usr.Name())
-		log.Debugf(c.ctx, "TotalReceivedPackets:%d", usr.DLStat.TotalReceivedPackets)
-		log.Debugf(c.ctx, "TotalReceivedBytes:%d", usr.DLStat.TotalReceivedBytes)
-		log.Debugf(c.ctx, "TotalForwardPackets:%d", usr.DLStat.TotalForwardPackets)
-		log.Debugf(c.ctx, "TotalForwardBytes:%d", usr.DLStat.TotalForwardBytes)
+		log.Debugf(c.Ctx, "reflesh user dl stat %s success", usr.Name())
+		log.Debugf(c.Ctx, "TotalReceivedPackets:%d", usr.DLStat.TotalReceivedPackets)
+		log.Debugf(c.Ctx, "TotalReceivedBytes:%d", usr.DLStat.TotalReceivedBytes)
+		log.Debugf(c.Ctx, "TotalForwardPackets:%d", usr.DLStat.TotalForwardPackets)
+		log.Debugf(c.Ctx, "TotalForwardBytes:%d", usr.DLStat.TotalForwardBytes)
 
 		return nil
 	}
 
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-c.Ctx.Done():
 			return
 		case <-ticker.C:
+			log.Debugf(c.Ctx, "print stat data")
 			user.Range(f)
 		}
 	}

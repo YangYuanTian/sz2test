@@ -3,6 +3,7 @@ package user
 import (
 	"fmt"
 	"github.com/cilium/ebpf"
+	"strings"
 	"sync"
 	"upf/internal/pkg/rule"
 	"upf/internal/pkg/stat"
@@ -12,7 +13,7 @@ type User struct {
 
 	//ids include seid  teid  and ueip
 	ids map[string]struct{}
-	m   sync.Mutex
+	m   sync.RWMutex
 
 	UlRuleGetter
 	DlRuleGetter
@@ -51,7 +52,9 @@ func (u *Users) Add(usr *User) {
 }
 
 var (
-	users = Users{}
+	users = Users{
+		users: make(map[string]*User),
+	}
 )
 
 func NewUser() *User {
@@ -62,11 +65,33 @@ func NewUser() *User {
 	return usr
 }
 
+func AddUser(u *User) {
+	users.Add(u)
+}
+
+func Print() string {
+	users.m.RLock()
+	defer users.m.RUnlock()
+
+	var s strings.Builder
+	s.WriteString("display all users:\n")
+	for _, u := range users.users {
+		s.WriteString(fmt.Sprintf("%v\n", u))
+	}
+	return s.String()
+}
+
 func (u *User) AddId(id string) {
 	u.m.Lock()
+
+	defer users.Add(u)
 	defer u.m.Unlock()
+
+	if u.ids == nil {
+		u.ids = make(map[string]struct{})
+	}
+
 	u.ids[id] = struct{}{}
-	users.Add(u)
 }
 
 func (u *User) DelId(id string) {
@@ -82,8 +107,8 @@ func (u *User) DelId(id string) {
 }
 
 func (u *User) GetIds() []string {
-	u.m.Lock()
-	defer u.m.Unlock()
+	u.m.RLock()
+	defer u.m.RUnlock()
 
 	ids := make([]string, 0, len(u.ids))
 	for id := range u.ids {

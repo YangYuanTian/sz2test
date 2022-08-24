@@ -2,9 +2,11 @@ package mock
 
 import (
 	"github.com/cilium/ebpf"
+	"upf/internal/pkg/id"
 	"upf/internal/pkg/rule"
 	"upf/internal/pkg/stat"
 	"upf/internal/pkg/user"
+	"upf/internal/pkg/utils"
 )
 
 type User struct {
@@ -16,56 +18,52 @@ type User struct {
 	u *user.User
 }
 
-func (usr *User) CreateMockUser() *user.User {
+type Config struct {
+	TEID    uint32
+	GNBTEID uint32
+	UEIP    []byte
+	StatID  uint16
+	GNBIP   []byte
+	N3IP    []byte
+}
+
+func (usr *User) CreateMockUser(c Config) *user.User {
+
 	u := &user.User{
-		UlRuleGetter: nil,
-		DlRuleGetter: nil,
 		ULRule: rule.ULRule{
-			Map: nil,
-			Key: 0,
+			Map: usr.UlRule,
+			Key: utils.SwapUint32(c.TEID),
 			Rule: rule.Rule{
-				DropForGateControl: false,
-				DropForTest:        false,
-				PassForTest:        false,
-				PassForSample:      false,
-				PassForGetRule:     false,
-				PassForPaging:      false,
-				StatID:             0,
-				Desc:               0,
-				FlowControl:        0,
-				HeaderLen:          0,
+				StatID:     c.StatID,
+				DescAction: rule.RemoveGTPHeader,
 			},
 		},
 		ULStat: stat.Stat{
-			Map: nil,
-			Key: 0,
+			Map: usr.UlStat,
+			Key: uint32(c.StatID),
 		},
 		DLRule: rule.DLRule{
-			Map: nil,
-			Key: 0,
+			Map: usr.DlRule,
+			Key: utils.KeyOfUEIP(c.UEIP),
 			Rule: rule.Rule{
-				DropForGateControl: false,
-				DropForTest:        false,
-				PassForTest:        false,
-				PassForSample:      false,
-				PassForGetRule:     false,
-				PassForPaging:      false,
-				StatID:             0,
-				Desc:               0,
-				FlowControl:        0,
-				HeaderLen:          0,
+				StatID:     c.StatID,
+				DescAction: rule.CreateGTPHeader,
 			},
-			TEID:  0,
-			GNBIP: nil,
-			SrcIP: nil,
-			PPP:   false,
-			PPI:   false,
-			QFI:   0,
+			TEID:  c.GNBTEID,
+			GNBIP: c.GNBIP,
+			SrcIP: c.N3IP,
+			QFI:   1,
 		},
 		DLStat: stat.Stat{
-			Map: nil,
-			Key: 0,
+			Map: usr.DlStat,
+			Key: uint32(c.StatID),
 		},
 	}
+
+	usr.u = u
+
+	u.AddId(id.TEID(c.TEID).String())
+	u.AddId(id.UEIP(c.UEIP).String())
+
 	return u
 }

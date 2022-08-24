@@ -1,14 +1,23 @@
 package rule
 
 import (
+	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"testing"
+	"upf/internal/pkg/port/pcap"
 )
 
 func TestTemplate(t *testing.T) {
 
+	eth := &layers.Ethernet{
+		SrcMAC:       []byte{1, 2, 3, 4, 5, 6},
+		DstMAC:       []byte{7, 8, 8, 8, 8, 8},
+		EthernetType: layers.EthernetTypeIPv4,
+	}
+
 	ipLayer := &layers.IPv4{
+		Version:  4,
 		Protocol: layers.IPProtocolUDP,
 		IHL:      0x45,
 		TTL:      0x80,
@@ -22,25 +31,60 @@ func TestTemplate(t *testing.T) {
 		DstPort: layers.UDPPort(2152),
 	}
 
+	if err := udpLayer.SetNetworkLayerForChecksum(ipLayer); err != nil {
+		t.Fatalf("set failed %+v", err)
+	}
+
+	a := pduSessionContainer{
+		pduType: 0,
+		PPP:     true,
+		RQI:     false,
+		QFI:     2,
+		PPI:     0,
+	}
+
+	content := a.Marshal()
+	x := 0
+	if (len(content)+2)%4 > 0 {
+		x = (len(content)+2)/4 + 1
+	} else {
+		x = (len(content) + 2) / 4
+	}
+
 	gtpLayer := &layers.GTPv1U{
 		Version:             1,
 		ProtocolType:        1,
-		ExtensionHeaderFlag: false,
+		ExtensionHeaderFlag: true,
 		MessageType:         255,
+		MessageLength:       uint16((x + 1) * 4),
 		TEID:                1234,
+		SequenceNumber:      0,
+		NPDU:                0,
+		GTPExtensionHeaders: []layers.GTPExtensionHeader{
+			{
+				Type:    0x85,
+				Content: a.Marshal(),
+			},
+		},
 	}
 
 	options := gopacket.SerializeOptions{
-		FixLengths:       false,
-		ComputeChecksums: false,
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+
+	ls := []gopacket.SerializableLayer{
+		eth,
+		ipLayer,
+		udpLayer,
+		gtpLayer,
 	}
 
 	// And create the packet with the layers
 	buffer := gopacket.NewSerializeBuffer()
+
 	err := gopacket.SerializeLayers(buffer, options,
-		ipLayer,
-		udpLayer,
-		gtpLayer,
+		ls...,
 	)
 
 	if err != nil {
@@ -49,11 +93,9 @@ func TestTemplate(t *testing.T) {
 
 	outgoingPacket := buffer.Bytes()
 
-	if len(outgoingPacket) > 48 {
-		t.Fatal("packet length is too long")
-	}
+	pcap.WritePacket("rule.test", outgoingPacket)
 
 	packet := gopacket.NewPacket(outgoingPacket, layers.LayerTypeIPv4, gopacket.Default)
 
-	t.Log(packet.Dump())
+	fmt.Println(packet.Dump())
 }
