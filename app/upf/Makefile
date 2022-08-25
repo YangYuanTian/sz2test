@@ -41,6 +41,7 @@ container-all:
 		--env GOPROXY='https://goproxy.cn,direct' \
 		"${IMAGE}:${VERSION}" \
 		$(MAKE) all
+	go build
 
 # (debug) Drop the user into a shell inside the container as root.
 container-shell:
@@ -60,13 +61,11 @@ format:
 
 all: format generate
 
-
 # $BPF_CLANG is used in go:generate invocations.
 generate: export BPF_CLANG := $(CLANG)
 generate: export BPF_CFLAGS := $(CFLAGS)
 generate:
 	go generate
-	go build
 
 
 %-el.elf: %.c

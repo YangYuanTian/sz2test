@@ -136,7 +136,7 @@ func xdp() {
 	}
 
 	//批量创建mock用户
-	for x := 0; x < 200; x++ {
+	for x := 0; x < 1; x++ {
 
 		c := defaultUser
 		c.UEIP[3] += uint8(x)
@@ -153,7 +153,7 @@ func xdp() {
 	g.Add(1)
 	ctl := controller.Controller{
 
-		Interval: time.Second * 2,
+		Interval: time.Second * 5,
 
 		Ctx: context.Background(),
 	}
@@ -164,9 +164,25 @@ func xdp() {
 		ctl.Loop()
 	}()
 
+	if iface1 == iface2 {
+		g.Add(1)
+		startPort(iface1, port.N3N6)
+	} else if iface1 != "" {
+		g.Add(1)
+		startPort(iface1, port.N3)
+	} else if iface2 != "" {
+		g.Add(1)
+		startPort(iface2, port.N6)
+	}
+
+	g.Wait()
+}
+
+func startPort(iName string, iType port.InterfaceType) {
+
 	p, err := port.NewPort(&port.Config{
-		InterfaceType: n3n6Interface,
-		InterfaceName: "enp1s0f1",
+		InterfaceType: iType,
+		InterfaceName: iName,
 		GTPServer:     &gtpserver.GtpServer{},
 		UlUserRuler:   &uplink.ULHandler{},
 		DlUserRuler:   &downlink.DLHandler{},
@@ -180,14 +196,13 @@ func xdp() {
 		if err := p.Pcap(ctx); err != nil {
 			log.Fatalf("pcap failed %+v", err)
 		}
-
 	}()
 
-	if err := p.Run(ctx); err != nil {
-		log.Fatalf("port run failed %+v", err)
-	}
-
-	g.Wait()
+	go func() {
+		if err := p.Run4(ctx); err != nil {
+			log.Fatalf("port run failed %+v", err)
+		}
+	}()
 }
 
 func printIPConfig(config *ebpf.Map) {
