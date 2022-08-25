@@ -300,7 +300,7 @@ SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
       return XDP_DROP;
 
     // 申请空间
-    if (num == 0 || xdp_adjust_head(ctx, num))
+    if (num == 0 || xdp_adjust_head(ctx, -num))
       return XDP_DROP;
 
     char *data = ctx_data(ctx);
@@ -322,8 +322,7 @@ SEC("xdp/n3n6") int xdp_prog_func_n3n6(struct xdp_md *ctx) {
       return XDP_DROP;
     }
 
-    if (ctx_no_room(data + num + sizeof(struct ethhdr), data_end))
-      return XDP_DROP;
+    return XDP_PASS;
 
     // 配置ipv4 header中的packet id
     struct iphdr *hdr = (struct iphdr *)(&data[sizeof(struct ethhdr)]);
