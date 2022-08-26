@@ -5,22 +5,17 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"github.com/intel-go/nff-go/packet"
-	"lite5gc/cmn/message/pfcp"
-	"lite5gc/cmn/message/pfcp/utils"
-	"lite5gc/cmn/nas/nasie"
-	"lite5gc/cmn/rlogger"
-	"lite5gc/cmn/types/configure"
-	"lite5gc/cmn/types3gpp"
-	"lite5gc/cmn/userstrace"
-	"lite5gc/oam/am"
-	"lite5gc/upf/context/gnbcontext"
-	"lite5gc/upf/context/n4context"
-	"lite5gc/upf/service/gtpsignalling/signaldef"
-	"lite5gc/upf/service/upfam"
 	"net"
 	"sort"
 	"strconv"
+	"upf/internal/pkg/cmn/message/pfcp"
+	"upf/internal/pkg/cmn/message/pfcp/utils"
+	"upf/internal/pkg/cmn/nas/nasie"
+	"upf/internal/pkg/cmn/rlogger"
+	"upf/internal/pkg/cmn/types3gpp"
+	"upf/internal/pkg/upf/context/gnbcontext"
+	"upf/internal/pkg/upf/context/n4context"
+	"upf/internal/pkg/upf/service/gtpsignalling/signaldef"
 )
 
 // key:seid uint64,value:*OrderlyFieldNumPDRs
@@ -219,13 +214,6 @@ func StoreConfigPDRsTable(
 	ueIPtoPDR.SEID = n4Cxt.SEID
 	ueIPtoPDR.UeIp = PDRs.UEIPAddress.String()
 	ueIPtoPDR.Pdr = nil
-	//抓包用的映射表 建立teid到seid的映射表，用户完成用户的数据包抓取
-	if len(PDRs.UEIPAddress) != 0 {
-		err := userstrace.AddUser(packet.SEID(n4Cxt.SEID), packet.UEIP(PDRs.UEIPAddress))
-		if err != nil {
-			rlogger.Trace(moduleTag, rlogger.ERROR, n4Cxt.SEID, "Store user id SEID:%v, ueip: %+v,failed", n4Cxt.SEID, PDRs.UEIPAddress)
-		}
-	}
 	err = ueIpN4SessionTable.Set(ueIPtoPDR.UeIp, ueIPtoPDR)
 	if err != nil {
 		if err.Error() == "key exist" {
@@ -323,13 +311,6 @@ func UpdateConfigPDRsTable(
 	ueIPtoPDR.SEID = n4Cxt.SEID
 	ueIPtoPDR.UeIp = PDRs.UEIPAddress.String()
 	ueIPtoPDR.Pdr = nil
-	//抓包用的映射表 建立teid到seid的映射表，用户完成用户的数据包抓取
-	if len(PDRs.UEIPAddress) != 0 {
-		err := userstrace.AddUser(packet.SEID(n4Cxt.SEID), packet.UEIP(PDRs.UEIPAddress))
-		if err != nil {
-			rlogger.Trace(moduleTag, rlogger.ERROR, n4Cxt.SEID, "Store user id SEID:%v, ueip: %+v,failed", n4Cxt.SEID, PDRs.UEIPAddress)
-		}
-	}
 	ueIpN4SessionTable.Update(ueIPtoPDR.UeIp, ueIPtoPDR)
 
 	//TEIdN4SessionTable
@@ -542,28 +523,6 @@ func ReceivingFARInfo(fars []*pfcp.IECreateFAR, farId uint32, n4Cxt *n4context.N
 					if DnIp == nil && DnIpv6 == nil {
 						rlogger.Trace(moduleTag, rlogger.ERROR, n4Cxt, "DNN is not configured locally:%v", vFar.NetworkInstance)
 						n4Cxt.Cause = pfcp.Cause_Mandatory_IE_incorrect
-						//todo DNN 配置错误告警
-						{
-							ipString := ""
-							if n4Cxt.SmfSEID.V4Flag == 1 {
-								ipString = n4Cxt.SmfSEID.IPv4Addr.String()
-							} else {
-								ipString = n4Cxt.SmfSEID.IPv6Addr.String()
-							}
-							dnnSupport, _ := upfam.DNNSupport.Get(fmt.Sprintf("%d%s", n4Cxt.SmfSEID.SEID, ipString))
-							if !dnnSupport {
-								alarmDetails := upfam.UPFAlarmDetails{
-									AlarmID:        am.UPFDNNError,
-									Reason:         "DNN can't find out in local configure file",
-									DNNRequestName: vFar.NetworkInstance,
-									DNNLocal:       configure.UpfConf.DnnNameGwIpMap,
-									Suggestion:     "check local dnn",
-								}
-								upfam.UPFAlarmReport(alarmDetails) //DNN 配置错误告警
-								upfam.DNNSupport.Add(fmt.Sprintf("%d%s", n4Cxt.SmfSEID.SEID, ipString), true)
-							}
-						}
-
 						return farInfo, ErrNoMatchDnn
 					}
 					////todo 如果这一次没有配置错误，同时上一次又配置错误的话，在此处产生告警清除

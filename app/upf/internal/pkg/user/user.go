@@ -30,6 +30,17 @@ type User struct {
 	DLStat stat.Stat
 }
 
+func (u *User) SetStatID(id uint16) {
+	u.ULRule.StatID = id
+	u.ULStat.Key = uint32(id)
+	u.DLStat.Key = uint32(id)
+	u.DLRule.StatID = id
+}
+
+func (u *User) GetStatID() uint16 {
+	return u.ULRule.StatID
+}
+
 func (u *User) Save() error {
 	err := u.ULRule.Update(ebpf.UpdateAny)
 	if err != nil {
@@ -90,10 +101,6 @@ func NewUser(c Config) *User {
 	}
 
 	return usr
-}
-
-func AddUser(u *User) {
-	users.Add(u)
 }
 
 func Print() string {
@@ -196,12 +203,12 @@ func (u *User) Name() string {
 	return name
 }
 
-func GetUserById(id fmt.Stringer) *User {
+func GetUserById(id string) *User {
 
 	users.m.RLock()
 	defer users.m.RUnlock()
 
-	return users.users[id.String()]
+	return users.users[id]
 }
 
 func Range(f func(usr *User) error) {
@@ -236,7 +243,7 @@ func (u *User) Delete() error {
 	users.m.Lock()
 	defer users.m.Unlock()
 
-	for x, _ := range u.ids {
+	for x := range u.ids {
 		delete(users.users, x)
 	}
 
@@ -256,7 +263,9 @@ func (u *User) Delete() error {
 		return err
 	}
 
-	id.StatIDReturn(u.StatID)
+	id.StatIDReturn(u.GetStatID())
+
+	u.deleted = true
 
 	return nil
 }

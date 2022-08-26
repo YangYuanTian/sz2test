@@ -3,10 +3,10 @@ package pdr
 import (
 	"encoding/json"
 	"fmt"
-	"lite5gc/cmn/message/pfcp"
-	"lite5gc/cmn/nas/nasie"
-	"lite5gc/cmn/rlogger"
 	"net"
+	"upf/internal/pkg/cmn/message/pfcp"
+	"upf/internal/pkg/cmn/nas/nasie"
+	"upf/internal/pkg/cmn/rlogger"
 )
 
 const moduleTag rlogger.ModuleTag = "pdr"

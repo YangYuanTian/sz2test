@@ -3,10 +3,10 @@ package pdr
 import (
 	"container/list"
 	"fmt"
-	"lite5gc/cmn/nas/nasie"
-	"lite5gc/cmn/syncmap"
-	"lite5gc/cmn/types3gpp"
 	"net"
+	"upf/internal/pkg/cmn/nas/nasie"
+	"upf/internal/pkg/cmn/syncmap"
+	"upf/internal/pkg/cmn/types3gpp"
 )
 
 // 3GPP TS 23.501 V15.3.0 (2018-09)

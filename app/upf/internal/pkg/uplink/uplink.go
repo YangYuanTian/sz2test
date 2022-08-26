@@ -33,7 +33,7 @@ func (u *ULHandler) MsgHandle(ctx context.Context, msg []byte) error {
 
 	gtpu := gtp.(*layers.GTPv1U)
 
-	usr := user.GetUserById(id.TEID(gtpu.TEID))
+	usr := user.GetUserById(id.TEID(gtpu.TEID).String())
 
 	if usr == nil {
 		log.Debugf(ctx, "not found user with teid:%d", gtpu.TEID)

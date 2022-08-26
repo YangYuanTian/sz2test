@@ -8,9 +8,9 @@ package gnbcontext
 
 import (
 	"fmt"
-	"lite5gc/cmn/rlogger"
-	"lite5gc/cmn/syncmap"
-	"lite5gc/cmn/types"
+	"upf/internal/pkg/cmn/rlogger"
+	"upf/internal/pkg/cmn/syncmap"
+	"upf/internal/pkg/cmn/types"
 )
 
 var gnbTable syncmap.SyncMap    //key:ip string,value: *GnbInfo

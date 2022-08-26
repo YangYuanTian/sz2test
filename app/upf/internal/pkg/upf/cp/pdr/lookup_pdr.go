@@ -1,9 +1,9 @@
 package pdr
 
 import (
-	"lite5gc/cmn/nas/nasie"
-	"lite5gc/cmn/rlogger"
 	"net"
+	"upf/internal/pkg/cmn/nas/nasie"
+	"upf/internal/pkg/cmn/rlogger"
 )
 
 //3GPP TS 29.244 V15.5.0 (2019-03)

@@ -111,7 +111,7 @@ type Config struct {
 	DlRule *ebpf.Map
 }
 
-func (u myCreateUser) CreateUserById(id fmt.Stringer) error {
+func (u myCreateUser) CreateUserById(i fmt.Stringer) error {
 
 	usr := user.NewUser(user.Config{
 		DlStat: m.DlStat,
@@ -120,7 +120,15 @@ func (u myCreateUser) CreateUserById(id fmt.Stringer) error {
 		DlRule: m.DlRule,
 	})
 
-	usr.AddId(id.String())
+	usr.AddId(i.String())
+
+	s, err := id.GetStatID()
+
+	if err != nil {
+		return err
+	}
+
+	usr.SetStatID(s)
 
 	return nil
 }
@@ -145,11 +153,9 @@ func (s *standardManager) handle(e event.Event) (ret error) {
 
 	case TypeSetUserTEID:
 
-		name := e.UserName()
-
-		usr := user.GetUserById(id.ID(name))
+		usr := user.GetUserById(e.UserName())
 		if usr == nil {
-			return gerror.Newf("not found user with id:%s", name)
+			return gerror.Newf("not found user with id:%s", e.UserName())
 		}
 
 		u := myTEIDSetter{}
@@ -166,11 +172,10 @@ func (s *standardManager) handle(e event.Event) (ret error) {
 		}
 
 	case TypeSetUserUEIP:
-		name := e.UserName()
 
-		usr := user.GetUserById(id.ID(name))
+		usr := user.GetUserById(e.UserName())
 		if usr == nil {
-			return gerror.Newf("not found user with id:%s", name)
+			return gerror.Newf("not found user with id:%s", e.UserName())
 		}
 
 		u := myUEIPSetter{}

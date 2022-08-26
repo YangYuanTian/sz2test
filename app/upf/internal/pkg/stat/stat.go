@@ -17,7 +17,7 @@ type bpfStatT struct {
 
 type Stat struct {
 
-	//Map type is BPF_MAP_TYPE_PERCPU_ARRAY
+	//Map type: BPF_MAP_TYPE_PERCPU_ARRAY
 	Map *ebpf.Map
 	Key uint32
 

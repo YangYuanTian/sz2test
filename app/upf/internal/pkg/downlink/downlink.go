@@ -32,7 +32,7 @@ func (h *DLHandler) MsgHandle(ctx context.Context, msg []byte) error {
 
 	ip, _ := l.(*layers.IPv4)
 
-	usr := user.GetUserById(id.UEIP(ip.DstIP))
+	usr := user.GetUserById(id.UEIP(ip.DstIP).String())
 
 	if usr == nil {
 		log.Debugf(ctx, "user not found with ueip %s", ip.DstIP)
