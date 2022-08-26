@@ -24,6 +24,24 @@ type Stat struct {
 	bpfStatT
 }
 
+func (s *Stat) Clear() error {
+	var bpfStat []bpfStatT
+
+	err := s.Map.Lookup(&s.Key, &bpfStat)
+	if err != nil {
+		return err
+	}
+
+	for x := 0; x < len(bpfStat); x++ {
+		bpfStat[x].TotalForwardBytes = 0
+		bpfStat[x].TotalForwardPackets = 0
+		bpfStat[x].TotalReceivedBytes = 0
+		bpfStat[x].TotalReceivedPackets = 0
+	}
+
+	return s.Map.Update(&s.Key, &bpfStat, ebpf.UpdateExist)
+}
+
 // Refresh pull data from map
 func (s *Stat) Refresh() error {
 

@@ -6,6 +6,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"upf/internal/pkg/id"
+	"upf/internal/pkg/pktinfo"
 	"upf/internal/pkg/port"
 	"upf/internal/pkg/rule"
 	"upf/internal/pkg/user"
@@ -40,7 +41,7 @@ func (u *ULHandler) MsgHandle(ctx context.Context, msg []byte) error {
 	}
 
 	//获取对应的规则，并且更新xdp中的缓存
-	if err := usr.UpdateUlRule(); err != nil {
+	if err := usr.UpdateUlRule(&pktinfo.UlPkt{}); err != nil {
 		return err
 	}
 

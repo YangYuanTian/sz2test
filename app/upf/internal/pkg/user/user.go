@@ -5,6 +5,8 @@ import (
 	"github.com/cilium/ebpf"
 	"strings"
 	"sync"
+	"upf/internal/pkg/id"
+	"upf/internal/pkg/pktinfo"
 	"upf/internal/pkg/rule"
 	"upf/internal/pkg/stat"
 )
@@ -12,9 +14,10 @@ import (
 type User struct {
 
 	//ids include seid  teid  and ueip
-	ids  map[string]struct{}
-	m    sync.RWMutex
-	once sync.Once
+	ids     map[string]struct{}
+	m       sync.RWMutex
+	once    sync.Once
+	deleted bool
 
 	UlRuleGetter
 	DlRuleGetter
@@ -146,20 +149,20 @@ func (u *User) GetIds() []string {
 }
 
 type UlRuleGetter interface {
-	GetUlRule(*User) *rule.ULRule
+	GetUlRule(pkt *pktinfo.UlPkt) *rule.ULRule
 }
 
 type DlRuleGetter interface {
-	GetDlRule(*User) *rule.DLRule
+	GetDlRule(pkt *pktinfo.DlPkt) *rule.DLRule
 }
 
-func (u *User) UpdateUlRule() error {
+func (u *User) UpdateUlRule(pkt *pktinfo.UlPkt) error {
 
 	if u.UlRuleGetter == nil {
 		return fmt.Errorf("ul rule getter is nil")
 	}
 
-	r := u.UlRuleGetter.GetUlRule(u)
+	r := u.UlRuleGetter.GetUlRule(pkt)
 	if r == nil {
 		return fmt.Errorf("ul rule is nil")
 	}
@@ -169,12 +172,12 @@ func (u *User) UpdateUlRule() error {
 	return u.ULRule.Update(ebpf.UpdateAny)
 }
 
-func (u *User) UpdateDlRule() error {
+func (u *User) UpdateDlRule(pkt *pktinfo.DlPkt) error {
 	if u.DlRuleGetter == nil {
 		return fmt.Errorf("ul rule getter is nil")
 	}
 
-	r := u.DlRuleGetter.GetDlRule(u)
+	r := u.DlRuleGetter.GetDlRule(pkt)
 	if r == nil {
 		return fmt.Errorf("ul rule is nil")
 	}
@@ -218,4 +221,42 @@ func Range(f func(usr *User) error) {
 			return
 		}
 	}
+}
+
+// Delete will release user resource for ebpf maps,and not be got by GetUserById
+func (u *User) Delete() error {
+
+	u.m.Lock()
+	defer u.m.Unlock()
+
+	if u.deleted {
+		return nil
+	}
+
+	users.m.Lock()
+	defer users.m.Unlock()
+
+	for x, _ := range u.ids {
+		delete(users.users, x)
+	}
+
+	if err := u.DLRule.Map.Delete(u.DLRule.Key); err != nil {
+		return err
+	}
+
+	if err := u.ULRule.Map.Delete(u.ULRule.Key); err != nil {
+		return err
+	}
+
+	if err := u.ULStat.Clear(); err != nil {
+		return err
+	}
+
+	if err := u.DLStat.Clear(); err != nil {
+		return err
+	}
+
+	id.StatIDReturn(u.StatID)
+
+	return nil
 }

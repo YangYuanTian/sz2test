@@ -2,6 +2,7 @@ package id
 
 import (
 	"fmt"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"net"
 	"sync"
 )
@@ -27,6 +28,11 @@ func (t TEID) String() string {
 type statID struct {
 	existed map[uint16]struct{}
 	m       sync.Mutex
+	max     uint16
+}
+
+func SetMaxID(u uint16) {
+	allocId.max = u
 }
 
 var allocId = statID{
@@ -34,25 +40,37 @@ var allocId = statID{
 }
 
 // GetStatID always allocate a min and usable id
-func GetStatID() uint16 {
+func GetStatID() (uint16, error) {
 
 	allocId.m.Lock()
 	defer allocId.m.Unlock()
 
-	var id uint16
+	var id = -1
 
-	for x := uint16(1); x < ^uint16(0); x++ {
+	for x := uint16(1); x < allocId.max; x++ {
 		if _, ok := allocId.existed[x]; !ok {
-			id = x
-			allocId.existed[id] = struct{}{}
+			id = int(x)
+			allocId.existed[x] = struct{}{}
 		}
 	}
 
-	return id
+	if id == -1 {
+		return 0, gerror.Newf("not available stat id for max id value:%d", allocId.max)
+	}
+
+	return uint16(id), nil
 }
 
 type ID string
 
 func (i ID) String() string {
 	return string(i)
+}
+
+func StatIDReturn(id uint16) {
+
+	allocId.m.Lock()
+	defer allocId.m.Unlock()
+
+	delete(allocId.existed, id)
 }

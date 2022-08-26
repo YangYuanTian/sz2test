@@ -6,6 +6,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"upf/internal/pkg/id"
+	"upf/internal/pkg/pktinfo"
 	"upf/internal/pkg/port"
 	"upf/internal/pkg/rule"
 	"upf/internal/pkg/user"
@@ -38,7 +39,7 @@ func (h *DLHandler) MsgHandle(ctx context.Context, msg []byte) error {
 		return nil
 	}
 
-	if err := usr.UpdateDlRule(); err != nil {
+	if err := usr.UpdateDlRule(&pktinfo.DlPkt{}); err != nil {
 		log.Debugf(ctx, "update dl rule failed: %s", err)
 		return nil
 	}
