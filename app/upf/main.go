@@ -58,7 +58,7 @@ func main() {
 
 var defaultUser = mock.Config{
 	TEID:    0x001e8480,
-	GNBTEID: 0,
+	GNBTEID: 1,
 	UEIP:    []byte{10, 55, 7, 2},
 	StatID:  0,
 	GNBIP:   []byte{172, 20, 0, 30},
@@ -135,14 +135,19 @@ func xdp() {
 		DlRule: objs.N4UeipMap,
 	}
 
+	mockedUser := usr.CreateMockUser(defaultUser)
+	if err := mockedUser.Save(); err != nil {
+		log.Fatalf("mocked user save failed %+v", err)
+	}
+
 	//批量创建mock用户
-	for x := 0; x < 1; x++ {
+	for x := 0; x < 100; x++ {
 
 		c := defaultUser
-		c.UEIP[3] += uint8(x)
-		c.TEID += uint32(x)
-		c.GNBTEID += uint32(x)
-		c.StatID += uint16(x)
+		c.UEIP[3] += uint8(1)
+		c.TEID += uint32(1)
+		c.GNBTEID += uint32(1)
+		c.StatID += uint16(1)
 
 		mockedUser := usr.CreateMockUser(c)
 		if err := mockedUser.Save(); err != nil {

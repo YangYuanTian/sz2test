@@ -39,7 +39,6 @@ func (s *Stat) Refresh() error {
 			"stat not found with key: %d",
 			s.Key)
 	}
-	log.Debugf(nil, "get cores:%d", len(bpfStat))
 	for x := 1; x < len(bpfStat); x++ {
 		bpfStat[0].TotalReceivedBytes += bpfStat[x].TotalReceivedBytes
 		bpfStat[0].TotalForwardBytes += bpfStat[x].TotalForwardBytes

@@ -29,11 +29,13 @@ func (c *Controller) Loop() {
 			return nil
 		}
 
-		log.Debugf(c.Ctx, "refresh user %s ul stat success", usr.Name())
-		log.Debugf(c.Ctx, "TotalReceivedPackets:%d", usr.ULStat.TotalReceivedPackets)
-		log.Debugf(c.Ctx, "TotalReceivedBytes:%d", usr.ULStat.TotalReceivedBytes)
-		log.Debugf(c.Ctx, "TotalForwardPackets:%d", usr.ULStat.TotalForwardPackets)
-		log.Debugf(c.Ctx, "TotalForwardBytes:%d", usr.ULStat.TotalForwardBytes)
+		if usr.ULStat.TotalReceivedBytes != 0 {
+			log.Debugf(c.Ctx, "refresh user %s ul stat success", usr.Name())
+			log.Debugf(c.Ctx, "TotalReceivedPackets:%d", usr.ULStat.TotalReceivedPackets)
+			log.Debugf(c.Ctx, "TotalReceivedBytes:%d", usr.ULStat.TotalReceivedBytes)
+			log.Debugf(c.Ctx, "TotalForwardPackets:%d", usr.ULStat.TotalForwardPackets)
+			log.Debugf(c.Ctx, "TotalForwardBytes:%d", usr.ULStat.TotalForwardBytes)
+		}
 
 		err = usr.DLStat.Refresh()
 		if err != nil {
@@ -41,11 +43,13 @@ func (c *Controller) Loop() {
 			return nil
 		}
 
-		log.Debugf(c.Ctx, "reflesh user dl stat %s success", usr.Name())
-		log.Debugf(c.Ctx, "TotalReceivedPackets:%d", usr.DLStat.TotalReceivedPackets)
-		log.Debugf(c.Ctx, "TotalReceivedBytes:%d", usr.DLStat.TotalReceivedBytes)
-		log.Debugf(c.Ctx, "TotalForwardPackets:%d", usr.DLStat.TotalForwardPackets)
-		log.Debugf(c.Ctx, "TotalForwardBytes:%d", usr.DLStat.TotalForwardBytes)
+		if usr.DLStat.TotalReceivedPackets != 0 {
+			log.Debugf(c.Ctx, "reflesh user dl stat %s success", usr.Name())
+			log.Debugf(c.Ctx, "TotalReceivedPackets:%d", usr.DLStat.TotalReceivedPackets)
+			log.Debugf(c.Ctx, "TotalReceivedBytes:%d", usr.DLStat.TotalReceivedBytes)
+			log.Debugf(c.Ctx, "TotalForwardPackets:%d", usr.DLStat.TotalForwardPackets)
+			log.Debugf(c.Ctx, "TotalForwardBytes:%d", usr.DLStat.TotalForwardBytes)
+		}
 
 		return nil
 	}

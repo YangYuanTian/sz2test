@@ -6,13 +6,11 @@ import (
 	"github.com/gogf/gf/v2/os/glog"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"syscall"
 	"time"
 )
 
 var (
-	pcapFile      string
 	interfaceName string
 
 	log = glog.New()
@@ -20,35 +18,62 @@ var (
 )
 
 func init() {
-	flag.StringVar(&pcapFile, "pfile", "", "send packet use pcap file")
-	flag.StringVar(&pcapFile, "interfaceName", "", "send packet use interface Name")
+	flag.StringVar(&interfaceName, "interfaceName", "ens3", "send packet use interface Name")
 }
 
 func main() {
 
-	handle, err := pcap.OpenOffline(pcapFile)
+	flag.Parse()
 
-	if err != nil {
-		log.Errorf(ctx, "open offline file failed:%+v\n", err)
+	log.Infof(ctx, "interfaceName:%s", interfaceName)
+
+	v4 := &layers.IPv4{
+		Version:  4,
+		IHL:      5,
+		TTL:      64,
+		Protocol: layers.IPProtocolUDP,
+		SrcIP:    []byte{172, 20, 0, 40},
+		DstIP:    []byte{10, 55, 7, 2},
 	}
 
-	err = handle.SetBPFFilter("ip.addr == 172.20.0.40")
-	if err != nil {
-		log.Debugf(ctx, "set filter failed:%+v\n", err)
+	udp := &layers.UDP{
+		SrcPort: 2002,
+		DstPort: 2003,
 	}
 
-	defer handle.Close()
+	err := udp.SetNetworkLayerForChecksum(v4)
 
-	packetSource := gopacket.NewPacketSource(handle,
-		handle.LinkType())
+	if err != nil {
+		log.Fatalf(ctx, "set network for checksum failed:%+v\n", err)
+	}
 
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	var b [64]byte
+
+	data := gopacket.Payload(b[:])
+
+	buf := gopacket.NewSerializeBuffer()
+
+	opt := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+
+	err = gopacket.SerializeLayers(
+		buf,
+		opt,
+		v4,
+		udp,
+		data,
+	)
+
+	if err != nil {
+		log.Fatalf(ctx, "packet SerializeLayers failed%+v\n", err)
+	}
 
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
 
 	if err != nil {
-		log.Errorf(ctx, "create socket failed:+v\n", err)
+		log.Fatalf(ctx, "create socket failed:+v\n", err)
 	}
 
 	defer syscall.Close(fd)
@@ -64,23 +89,25 @@ func main() {
 		log.Errorf(ctx, "%s bind to device error:%+v\n", interfaceName, err)
 	}
 
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ticker.C:
-			pkt := <-packetSource.Packets()
-
-			ip := pkt.Layer(layers.LayerTypeIPv4)
-			if ip == nil {
-				log.Infof(ctx, "nof find ip layer")
-				continue
-			}
-
-			v4 := ip.(*layers.IPv4)
 
 			ip4 := [4]byte{v4.DstIP[0], v4.DstIP[1], v4.DstIP[2], v4.DstIP[3]}
+
 			dstAddr.Addr = ip4
 
-			err = syscall.Sendto(fd, pkt.Data()[14:], 0, &dstAddr)
+			pkt := gopacket.NewPacket(buf.Bytes(), layers.LayerTypeIPv4, gopacket.Default)
+			log.Infof(ctx, pkt.Dump())
+
+			err = syscall.Sendto(fd, buf.Bytes(), 0, &dstAddr)
+
+			if err != nil {
+				log.Fatalf(ctx, "send pakcet err:%+v\n", err)
+			}
 		}
 	}
 }
