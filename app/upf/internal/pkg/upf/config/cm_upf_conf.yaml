@@ -1,0 +1,98 @@
+version:
+  main: "1.0"
+  patch: "0.1"
+logger:
+  level: "debug"
+  path: "logs/upf.log"
+  topic: "" # to use kafka, named with pattern "topic_*"
+  control: 0 # 0 - stdout, 1 - file
+packet capture:
+  - recv: false
+    send: false
+    outdir: "/home/sder/go/bin/logs"
+    poolcoeff: 1
+    port id: 0
+  - recv: false
+    send: false
+    outdir: "/home/sder/go/bin/logs"
+    poolcoeff: 1
+    port id: 1
+ipconf:
+  n3:
+    port id: 0
+    ipv4: 192.168.2.23
+    ipv6: 2001::201
+    mask: ""
+    ipv6mask: ""
+  n6:
+    port id: 0
+    ipv4: 192.168.2.23
+    ipv6: 2001::201
+    mask: ""
+    ipv6mask: ""
+n4:
+  local:
+    ipv4: 192.168.2.24
+    port: 8805
+nff:
+  dpdk args: "--log-level=7"
+  cpu list: ""
+  max instance number: 4
+  stats server nostats: true #true -nff stats
+  stats server address: "10.18.11.82"
+  stats server port: 8080
+  use vector: false
+  power mode: ""  #"" default:empty polling;"interrupt":based on C-state;"frequency":based on P-state,not implement currently
+  reassembly: false
+  use kni: false
+  max index: 8 #使用的网卡最大队列，有效值取1或者偶数
+dnn info:
+  - index: 1
+    dnn: "cmnet"
+    ip: "192.168.2.2"
+  - index: 2
+    dnn: "cmnet.com"
+    ip: "192.168.2.2"
+n3 gateway: "0.0.0.0"
+pm:
+  start module count: true
+  start session count: false
+timer:
+  pfcpt1 sec: 10
+  gtput1 sec: 60
+huge page:
+  numa type: "numa"
+  page number: 512
+nic name: 
+  - "ens20"
+  - "ens21"
+kernel: true #true -kernel version upf
+adapter:
+  gtpu extension header: 2
+sbi:
+  nrf:
+    addr:
+      ip: 10.18.1.95
+      port: 29510
+    scheme: http
+  upf:
+    addr:
+      ip: 127.0.0.1
+      port: 8810
+    scheme: http
+upf selection:
+  - index: 1
+    dnn name: cmnet.com
+    snssai: "1"
+    tai: "46000-1"
+    upf ip: 192.168.2.24
+  - index: 2
+    dnn name: ims
+    snssai: "1"
+    tai: "46000-1"
+    upf ip: 192.168.2.24
+  - index: 3
+    dnn name: cmnet
+    snssai: "1"
+    tai: "46000-1"
+    upf ip: 192.168.2.24

@@ -12,8 +12,9 @@ import (
 type User struct {
 
 	//ids include seid  teid  and ueip
-	ids map[string]struct{}
-	m   sync.RWMutex
+	ids  map[string]struct{}
+	m    sync.RWMutex
+	once sync.Once
 
 	UlRuleGetter
 	DlRuleGetter
@@ -57,10 +58,33 @@ var (
 	}
 )
 
-func NewUser() *User {
-	usr := &User{}
+type Config struct {
+	DlStat *ebpf.Map
+	UlStat *ebpf.Map
+	UlRule *ebpf.Map
+	DlRule *ebpf.Map
+	Ids    []string
+}
 
-	users.Add(usr)
+func NewUser(c Config) *User {
+	usr := &User{
+		ULRule: rule.ULRule{
+			Map: c.UlRule,
+		},
+		ULStat: stat.Stat{
+			Map: c.UlStat,
+		},
+		DLRule: rule.DLRule{
+			Map: c.DlRule,
+		},
+		DLStat: stat.Stat{
+			Map: c.DlStat,
+		},
+	}
+
+	for _, id := range c.Ids {
+		usr.AddId(id)
+	}
 
 	return usr
 }
@@ -82,14 +106,17 @@ func Print() string {
 }
 
 func (u *User) AddId(id string) {
+
 	u.m.Lock()
 
 	defer users.Add(u)
 	defer u.m.Unlock()
 
-	if u.ids == nil {
-		u.ids = make(map[string]struct{})
-	}
+	u.once.Do(
+		func() {
+			u.ids = make(map[string]struct{})
+		},
+	)
 
 	u.ids[id] = struct{}{}
 }
@@ -121,6 +148,7 @@ func (u *User) GetIds() []string {
 type UlRuleGetter interface {
 	GetUlRule(*User) *rule.ULRule
 }
+
 type DlRuleGetter interface {
 	GetDlRule(*User) *rule.DLRule
 }
